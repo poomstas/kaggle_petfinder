@@ -1,0 +1,17 @@
+# %%
+from datetime import datetime
+
+# %%
+def get_writer_name(args, config):
+    writer_name = \
+        "TB_NPHD2021_{}_LR_{}_BS_{}_nEpoch_{}".format(
+            config.model, config.lr, config.batch_size, config.epochs, 
+            datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
+
+    if args.TB_note != "":
+        writer_name += "_" + config.TB_note
+
+    print('TensorBoard Name: {}'.format(writer_name))
+
+    return writer_name
