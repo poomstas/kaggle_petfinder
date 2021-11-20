@@ -7,6 +7,7 @@ from torchvision.transforms.functional import to_tensor, to_pil_image
 
 class PetDataset(Dataset):
     def __init__(self, image_dir, label_list, augments=None, target_size=299):
+        super(PetDataset, self).__init__()
         self.image_dir = image_dir
         self.label_list = label_list
         self.augments = augments
