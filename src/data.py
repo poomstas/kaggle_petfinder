@@ -1,43 +1,54 @@
+import os
 import cv2
+import torch
 import numpy as np
+import pandas as pd
 import torch
 
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
 class PetDataset(Dataset):
-    def __init__(self, image_dir, label_list, augments=None, target_size=299):
+    def __init__(self, type_trainval='train', augments=None, target_size=299):
         super(PetDataset, self).__init__()
-        self.image_dir = image_dir
-        self.label_list = label_list
+
+        assert type_trainval in ['train', 'val'], "Specify either 'train' or 'val' in type_trainval" 
+        if type_trainval == 'train':
+            csv_file_path = './data/train.csv'
+            folder_name = 'train'
+        elif type_trainval == 'val':
+            csv_file_path = './data/test.csv'
+            folder_name = 'test'
+        
+        self.img_path = os.path.join('./data', folder_name)
+        self.df = pd.read_csv(csv_file_path)
+        self.df['filename'] = [Id + '.jpg' for Id in self.df['Id']] # Add filename column
         self.augments = augments
         self.target_size = target_size
-
+        
     def __getitem__(self, index):
-        image_path = self.image_dir[index]
-        label = self.label_list[index]
-        augments = self.augments
-        target_size = self.target_size
+        img_filename = self.df.loc[index]['filename']
+        img_fullpath = os.path.join(self.img_path, img_filename)
+        img = cv2.cv2Color(cv2.imread(img_fullpath), cv2.COLOR_BGR2RGB) # Read img and convert to RGB
 
-        bgr_image = cv2.imread(image_path)
-        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        if (self.target_size, self.target_size) != img.shape[:2]:
+            img = cv2.resize(img, (self.target_size, self.target_size))
 
-        image = rgb_image.copy()
+        metadata = self.df.loc[index].iloc[1:-2].values.astype(np.float32) # returns np.array
+        metadata = torch.tensor(metadata)
+        pawpularity = self.df.loc[index]['Pawpularity']
+        print('Pawpularity data type: {}'.format(str(type(pawpularity))))
 
-        if (target_size, target_size) != image.shape[:2]:
-            image = cv2.resize(image, (target_size, target_size))
+        if self.augments is not None:
+            transformed = self.augments(image=img)
+            img = transformed['image']
 
-        if augments is not None:
-            transformed = augments(image=image)
-            image = transformed["image"]
+        img = to_tensor(img)
 
-        image = to_tensor(image)
-        label = torch.tensor(np.asarray(label, np.float32))
-
-        return image, label, image_path
+        return img, metadata, pawpularity
 
     def __len__(self):
-        return len(self.image_dir)
+        return len(self.df)
 
 def convert_data(image, label):
     image = to_pil_image(image).convert("RGB")
