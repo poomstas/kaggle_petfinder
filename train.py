@@ -5,7 +5,7 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import albumentations as A
+# import albumentations as A
 from src.model import Xception #DenseNet121 # Add more as I go here
 from src.data import PetDataset
 from src.utils import print_config
@@ -67,7 +67,7 @@ dataloader_val   = DataLoader(dataset=PetDataset(type_trainval='val'),
 
 # %%
 temp = iter(dataloader_train)
-next(temp)
+img, metadata, pawpularity = next(temp)
 
 # %%
 DATA_DIR = './data/'

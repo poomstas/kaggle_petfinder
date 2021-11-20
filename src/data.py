@@ -35,15 +35,13 @@ class PetDataset(Dataset):
         if (self.target_size, self.target_size) != img.shape[:2]:
             img = cv2.resize(img, (self.target_size, self.target_size))
 
-        metadata = self.df.loc[index].iloc[1:-2].values.astype(np.float32) # returns np.array
+        metadata = self.df.loc[index].iloc[1:-2].values.astype(np.float32) # -> np.array
         metadata = torch.tensor(metadata)
-        pawpularity = self.df.loc[index]['Pawpularity']
-        print('Pawpularity data type: {}'.format(str(type(pawpularity))))
+        pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
 
         if self.augments is not None:
             transformed = self.augments(image=img)
             img = transformed['image']
-
         img = to_tensor(img)
 
         return img, metadata, pawpularity
