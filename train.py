@@ -28,12 +28,8 @@ config = {
   # Add structural design components here, e.g. Number of hidden layers for diff branches
 }
 
-# wandb.init(project="PetFinder", entity="poomstas")
-# wandb.config = config
-
-# value reference as: wandb.config.epochs
-
-# wandb.log({"loss": loss})
+wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
+wandb.config = config # value reference as: wandb.config.epochs
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
@@ -56,7 +52,10 @@ elif config['model'] == 'DenseNet121':
 AUG_TRAIN = A.Compose([
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
-    A.OneOf([A.RandomRotate90(p=0.5), A.Rotate(p=0.5)],p=0.5),
+    A.OneOf([
+            A.RandomRotate90(p=0.5), 
+            A.Rotate(p=0.5)],
+        p=0.5),
     A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
     A.ChannelShuffle(p=0.3),
     A.Normalize(NORMAL_MEAN, NORMAL_STD),
@@ -89,12 +88,4 @@ temp = iter(dataloader_train)
 img, metadata, pawpularity = next(temp)
 
 # %%
-# DATA_DIR = './data/'
-# TRAIN_DIR = os.path.join(DATA_DIR, 'train')
-# TEST_DIR = os.path.join(DATA_DIR, 'test')
-
-# df_train = pd.read_csv('./data/train.csv')
-# df_test  = pd.read_csv('./data/test.csv')
-# df_train['filename'] = [Id + '.jpg' for Id in df_train['Id']]
-# df_test['filename'] = [Id + '.jpg' for Id in df_test['Id']]
-
+# wandb.log({'loss': loss})

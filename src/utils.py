@@ -21,7 +21,8 @@ def get_writer_name(args, config):
 def print_config(config_dict):
     print('='*80)
     for key in config_dict.keys():
-        print('{}:\t\t\t{}'.format(key, config_dict[key]))
+        tab_spacings = '\t\t\t' if len(key)<=6 else '\t\t'
+        print('{}:{}{}'.format(key, tab_spacings, config_dict[key]))
     print('='*80)
 # %%
 def convert_data(image, label):
