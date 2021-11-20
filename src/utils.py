@@ -15,3 +15,10 @@ def get_writer_name(args, config):
     print('TensorBoard Name: {}'.format(writer_name))
 
     return writer_name
+
+# %%
+def print_config(config_dict):
+    print('='*80)
+    for key in config_dict.keys():
+        print('{}:\t\t\t{}'.format(key, config_dict[key]))
+    print('='*80)

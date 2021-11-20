@@ -29,7 +29,8 @@ class PetDataset(Dataset):
     def __getitem__(self, index):
         img_filename = self.df.loc[index]['filename']
         img_fullpath = os.path.join(self.img_path, img_filename)
-        img = cv2.cv2Color(cv2.imread(img_fullpath), cv2.COLOR_BGR2RGB) # Read img and convert to RGB
+        img = cv2.imread(img_fullpath)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # Read img and convert to RGB
 
         if (self.target_size, self.target_size) != img.shape[:2]:
             img = cv2.resize(img, (self.target_size, self.target_size))
