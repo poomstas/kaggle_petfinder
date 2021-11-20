@@ -4,9 +4,8 @@ import torch
 import numpy as np
 import pandas as pd
 import torch
-
 from torch.utils.data import Dataset
-from torchvision.transforms.functional import to_tensor, to_pil_image
+from torchvision.transforms.functional import to_tensor
 
 class PetDataset(Dataset):
     def __init__(self, type_trainval='train', augments=None, target_size=299):
@@ -25,6 +24,7 @@ class PetDataset(Dataset):
         self.df['filename'] = [Id + '.jpg' for Id in self.df['Id']] # Add filename column
         self.augments = augments
         self.target_size = target_size
+        print('PetDataset\t{}\t{}'.format(type_trainval, self.__len__()))
         
     def __getitem__(self, index):
         img_filename = self.df.loc[index]['filename']
@@ -48,9 +48,3 @@ class PetDataset(Dataset):
 
     def __len__(self):
         return len(self.df)
-
-def convert_data(image, label):
-    image = to_pil_image(image).convert("RGB")
-    label = label.detach().cpu().numpy()
-
-    return image, label
