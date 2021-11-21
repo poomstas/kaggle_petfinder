@@ -12,20 +12,18 @@ from albumentations.pytorch.transforms import ToTensorV2
 
 # %%
 class PetDataset(Dataset):
-    def __init__(self, csv_fullpath, trainvaltest='train', transform=None, target_size=299):
+    def __init__(self, csv_fullpath, img_folder, transform=None, target_size=299):
         self.df = pd.read_csv(csv_fullpath)
-        self.trainvaltest = trainvaltest
+        self.img_folder = img_folder
         self.transform = transform
         self.target_size = target_size
-        print(self.df)
     
     def __len__(self):
         return len(self.df)
     
     def __getitem__(self, index):
         img_filename = self.df['Id'][index] + '.jpg'
-        img_folder_name = 'test' if self.trainvaltest=='test' else 'train'
-        img_fullpath = os.path.join('../data/', img_folder_name, img_filename)
+        img_fullpath = os.path.join(self.img_folder, img_filename)
 
         img = mpimg.imread(img_fullpath) # -> np.ndarray, RGB, uint8
 
@@ -35,10 +33,15 @@ class PetDataset(Dataset):
         if self.transform is not None:
             img = self.transform(image=img)["image"]
         
-        metadata = self.df.loc[index].iloc[1:-2].values.astype(np.float32) # -> np.array
-        pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
+        col_index_start = self.df.columns.get_loc('Subject Focus')
+        col_index_end   = self.df.columns.get_loc('Blur')
+        metadata = self.df.loc[index].iloc[col_index_start:col_index_end].values.astype(np.float32) # -> np.array
 
-        return img, metadata, pawpularity
+        if 'Pawpularity' in self.df.columns:
+            pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
+            return img, metadata, pawpularity
+        else:
+            return img, metadata
 
 # %%
 if __name__=='__main__':
@@ -64,10 +67,14 @@ if __name__=='__main__':
         ToTensorV2()
     ])
 
-    ds_train = PetDataset('../data/train.csv', trainvaltest='train', transform=transforms)
-    dataloader = DataLoader(dataset=ds_train,
-                            shuffle=False,
-                            batch_size=2,
-                            num_workers=1)
-    temp = iter(dataloader)
+    ds_train = PetDataset('../data/separated_train.csv', img_folder='../data/train', transform=transforms)
+    dl_train = DataLoader(dataset=ds_train,
+                          shuffle=False,
+                          batch_size=4,
+                          num_workers=2)
+    # temp = iter(dataloader)
     # temp.next()
+    for images, metadata, pawpularities in dl_train:
+        print(images.shape)
+        print(metadata)
+        print(pawpularities)

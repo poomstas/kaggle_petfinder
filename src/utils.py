@@ -18,16 +18,14 @@ def separate_train_val(csv_path, val_frac, random_state=12345):
     n_val = int(len(df) * val_frac)
     df_train, df_val = train_test_split(df, test_size=n_val, random_state=random_state)
 
-    df_train = df_train.reset_index()
-    df_val = df_val.reset_index()
-
     print(df_train)
     print(df_val)
     print('Saving to separate files...')
     print('Writing to: ./data/separated_train.csv')
     print('Writing to: ./data/separated_val.csv')
-    df_train.to_csv('./data/separated_train.csv')
-    df_val.to_csv('./data/separated_val.csv')
+
+    df_train.to_csv('./data/separated_train.csv', index=False)
+    df_val.to_csv('./data/separated_val.csv', index=False)
 
     return df_train, df_val
 

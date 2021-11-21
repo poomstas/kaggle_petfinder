@@ -1,21 +1,22 @@
 # %%
+import os
 import time
 import torch
 import torch.nn as nn
 from torchvision import transforms
+import matplotlib.image as mpimg
+import cv2
 
-# import numpy as np
-# import pandas as pd
-# import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
 from src.model import Xception #DenseNet121 # Add more as I go here
-from src.data import PetDataset
 from src.utils import print_config, separate_train_val, get_writer_name
 from torch.utils.data import DataLoader
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
-from albumentations.pytorch.transforms import ToTensorV2
 import wandb
 
 # %%
@@ -39,7 +40,7 @@ config = {
   'learning_rate': 0.001,
   'min_lr': 1e-10,
   'patience': 3,
-  'reduce_lr_factor': 0.1,
+  'lr_reduction': 0.1,
   'epochs': 30,
   'gpu_index': 0,
   'TB_note': ''
@@ -72,38 +73,90 @@ criterion = nn.MSELoss()
 # criterion = nn.L1Loss() # output = loss(input, target)
 
 # %% Albumentation Augmentations
-# TRANSFORMS_TRAIN = A.Compose([
-#     A.HorizontalFlip(p=0.5),
-#     A.VerticalFlip(p=0.5),
-#     A.OneOf([
-#             A.RandomRotate90(p=0.5), 
-#             A.Rotate(p=0.5)],
-#         p=0.5),
-#     A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
-#     A.ChannelShuffle(p=0.3),
-#     A.Normalize(NORMAL_MEAN, NORMAL_STD),
-#     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
-#     ToTensorV2()
-# ])
+from albumentations.pytorch.transforms import ToTensorV2
 
-# TRANSFORMS_VALTEST = A.Compose([
-#     A.Normalize(NORMAL_MEAN, NORMAL_STD),
-#     ToTensorV2()
-# ])
-
-TRANSFORMS_TRAIN = transforms.Compose([
-    transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
-    transforms.ToTensor()
+TRANSFORMS_TRAIN = A.Compose([
+    A.HorizontalFlip(p=0.5),
+    A.VerticalFlip(p=0.5),
+    A.OneOf([
+            A.RandomRotate90(p=0.5), 
+            A.Rotate(p=0.5)],
+        p=0.5),
+    A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
+    A.ChannelShuffle(p=0.3),
+    A.Normalize(NORMAL_MEAN, NORMAL_STD),
+    # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+    ToTensorV2()
 ])
 
-TRANSFORMS_VALTEST = transforms.Compose([
-    transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
-    transforms.ToTensor()
+TRANSFORMS_VALTEST = A.Compose([
+    A.Normalize(NORMAL_MEAN, NORMAL_STD),
+    ToTensorV2()
 ])
 
+# TRANSFORMS_TRAIN = transforms.Compose([
+#     transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
+#     transforms.ToTensor()
+# ])
+
+# TRANSFORMS_VALTEST = transforms.Compose([
+#     transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
+#     transforms.ToTensor()
+# ])
+
+# %%
+os.getcwd()
 # %% No separate testing data used. "Test" is used as validation set.
+from src.data import PetDataset
+from torch.utils.data import DataLoader
+
+dataset_train = PetDataset(csv_fullpath = './data/separated_train.csv', 
+                           img_folder ='./data/train',
+                           transform=TRANSFORMS_TRAIN, 
+                           target_size=TARGET_SIZE),
+
+dataset_val   = PetDataset(csv_fullpath = './data/separated_val.csv',
+                           img_folder ='./data/train',
+                           transform=TRANSFORMS_VALTEST, 
+                           target_size=TARGET_SIZE),
+
+''' Test Datasets are missing the last column: Pawpularity. Make sure to account for this correctly.'''
+dataset_test  = PetDataset(csv_fullpath = './data/test.csv',
+                           img_folder ='./data/test',
+                           transform=TRANSFORMS_VALTEST, 
+                           target_size=TARGET_SIZE),
+
+
+dataloader_train = DataLoader(dataset = dataset_train,
+                              batch_size = config['batch_size'],
+                              drop_last = config['drop_last'],
+                              shuffle = config['train_shuffle'],
+                              num_workers = config['num_workers'])
+
+dataloader_val   = DataLoader(dataset = dataset_val,
+                              batch_size = config['batch_size'],
+                              drop_last = config['drop_last'],
+                              shuffle = config['val_shuffle'],
+                              num_workers = config['num_workers'])
+
+dataloader_test  = DataLoader(dataset = dataset_test,
+                              batch_size = 1,
+                              drop_last = False,
+                              shuffle = False,
+                              num_workers = 1)
+
+dataloaders = {'train': dataloader_train, 'val': dataloader_val, 'test': dataloader_test}
 
 # %% This throws an error for some reason... need to check.
+for images, metadata, pawpularities in dataloader_train:
+    print(images.shape)
+    print(metadata)
+    print(pawpularities)
+
+# %% This throws an error for some reason... need to check.
+# img, metadata, pawpularity = next(iter(dataloader_train))
+# img, metadata, pawpularity = next(iter(dataloader_val))
+# img, metadata, pawpularity = next(iter(dataloader_test))
 
 # %% Setup Logging
 TB_name = get_writer_name(config)
@@ -116,7 +169,7 @@ MODEL_WEIGHTS_SAVE_PATH
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
                     mode = 'min',
-                    factor = config['reduce_lr_factor'],
+                    factor = config['lr_reduction'],
                     patience = config['patience'],
                     min_lr = config['min_lr'],
                     verbose = True)
@@ -135,12 +188,12 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
         best_loss = float('inf')
         best_loss_epoch = None
 
-        for phase in ['Train', 'Val']:
+        for phase in ['train', 'val']:
             print("[{}] Epoch: {}/{}".format(phase, epoch, num_epochs))
 
-            if phase == 'Train':
+            if phase == 'train':
                 model.train()
-            elif phase == 'Val':
+            elif phase == 'val':
                 model.eval()
 
             running_loss = 0.0
@@ -152,7 +205,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 metadata = metadata.to(device)
                 pawpularities = pawpularities.to(device)
 
-                with torch.set_grad_enabled(phase=='Train'): # Enable grad only in train
+                with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
                     pawpulartiy_pred = model(images, metadata)
                     pawpulartiy_pred = torch.squeeze(pawpulartiy_pred) # See if this is necessary
 
@@ -160,12 +213,12 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
                     total_no_data += bs
 
-                    if phase=='Train':
+                    if phase=='train':
                         loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
 
-                    if phase=='Train' and lr_scheduler is not None:
+                    if phase=='train' and lr_scheduler is not None:
                         lr_scheduler.step()
 
                     if print_samples and batch_index == 0:
