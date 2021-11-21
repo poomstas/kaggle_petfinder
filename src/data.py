@@ -8,23 +8,16 @@ from torch.utils.data import Dataset
 from torchvision.transforms.functional import to_tensor
 
 class PetDataset(Dataset):
-    def __init__(self, type_trainval='train', augments=None, target_size=299):
+    def __init__(self, csv_file_path, type_trainvaltest='train', augments=None, target_size=299):
         super(PetDataset, self).__init__()
-
-        assert type_trainval in ['train', 'val'], "Specify either 'train' or 'val' in type_trainval" 
-        if type_trainval == 'train':
-            csv_file_path = './data/train.csv'
-            folder_name = 'train'
-        elif type_trainval == 'val':
-            csv_file_path = './data/test.csv'
-            folder_name = 'test'
         
+        folder_name = 'test' if type_trainvaltest else 'train'
         self.img_path = os.path.join('./data', folder_name)
         self.df = pd.read_csv(csv_file_path)
         self.df['filename'] = [Id + '.jpg' for Id in self.df['Id']] # Add filename column
         self.augments = augments
         self.target_size = target_size
-        print('PetDataset\t{}\t{}'.format(type_trainval, self.__len__()))
+        print('PetDataset\t{}\t{}'.format(type_trainvaltest, self.__len__()))
         
     def __getitem__(self, index):
         img_filename = self.df.loc[index]['filename']
