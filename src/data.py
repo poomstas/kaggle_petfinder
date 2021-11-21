@@ -5,18 +5,19 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from torchvision.transforms.functional import to_tensor
 
 class PetDataset(Dataset):
-    def __init__(self, csv_file_path, type_trainvaltest='train', augments=None, target_size=299):
+    def __init__(self, csv_file_path, type_trainvaltest='train', transforms=None, target_size=299):
         super(PetDataset, self).__init__()
         
         folder_name = 'test' if type_trainvaltest else 'train'
+
         self.img_path = os.path.join('./data', folder_name)
         self.df = pd.read_csv(csv_file_path)
         self.df['filename'] = [Id + '.jpg' for Id in self.df['Id']] # Add filename column
-        self.augments = augments
+        self.transforms = transforms
         self.target_size = target_size
+
         print('PetDataset\t{}\t{}'.format(type_trainvaltest, self.__len__()))
         
     def __getitem__(self, index):
@@ -28,14 +29,16 @@ class PetDataset(Dataset):
         if (self.target_size, self.target_size) != img.shape[:2]:
             img = cv2.resize(img, (self.target_size, self.target_size))
 
+        if self.transforms is not None:
+            img = self.transforms(image=img)["image"]
+
         metadata = self.df.loc[index].iloc[1:-2].values.astype(np.float32) # -> np.array
         metadata = torch.tensor(metadata)
         pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
 
-        if self.augments is not None:
-            transformed = self.augments(image=img)
-            img = transformed['image']
-        img = to_tensor(img)
+        img = np.array(img)
+        metadata = np.array(metadata)
+        pawpularity = np.array(pawpularity)
 
         return img, metadata, pawpularity
 

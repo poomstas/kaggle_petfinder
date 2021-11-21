@@ -1,11 +1,12 @@
 # %%
-# import os
 import time
 import torch
 import torch.nn as nn
-# import numpy as np
-# import pandas as pd
-# import matplotlib.pyplot as plt
+from torchvision import transforms
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
 from src.model import Xception #DenseNet121 # Add more as I go here
@@ -14,6 +15,7 @@ from src.utils import print_config, separate_train_val, get_writer_name
 from torch.utils.data import DataLoader
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
+from albumentations.pytorch.transforms import ToTensorV2
 import wandb
 
 # %%
@@ -30,7 +32,7 @@ config = {
   'gpu_index': 0,
   'model': 'Xception',
   'batch_size': 128,
-  'drop_last': True,
+  'drop_last': False,
   'train_shuffle': True,
   'val_shuffle': False,
   'num_workers': 8,
@@ -46,8 +48,6 @@ config = {
 
 wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
 wandb.config = config # value reference as: wandb.config.epochs
-
-# %% Learning Rate Scheduler Arguments
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
@@ -68,12 +68,11 @@ elif config['model'] == 'DenseNet121':
 
 optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
 criterion = nn.MSELoss()
-
 # criterion = ignite.metrics.MeanAbsoluteError
 # criterion = nn.L1Loss() # output = loss(input, target)
 
-# %% Augmentations
-AUG_TRAIN = A.Compose([
+# %% Albumentation Augmentations
+TRANSFORMS_TRAIN = A.Compose([
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
     A.OneOf([
@@ -84,26 +83,28 @@ AUG_TRAIN = A.Compose([
     A.ChannelShuffle(p=0.3),
     A.Normalize(NORMAL_MEAN, NORMAL_STD),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+    ToTensorV2()
 ])
 
-AUG_VALTEST = A.Compose([
-    A.Normalize(NORMAL_MEAN, NORMAL_STD),
-])
+# TRANSFORMS_VALTEST = A.Compose([
+#     A.Normalize(NORMAL_MEAN, NORMAL_STD),
+#     ToTensorV2()
+# ])
 
 # %% No separate testing data used. "Test" is used as validation set.
 dataset_train = PetDataset(csv_file_path = './data/separated_train.csv', 
                            type_trainvaltest='train',
-                           augments=AUG_TRAIN, 
+                           transforms=TRANSFORMS_TRAIN, 
                            target_size=TARGET_SIZE),
 
 dataset_val   = PetDataset(csv_file_path = './data/separated_val.csv',
                            type_trainvaltest='val',
-                           augments=AUG_VALTEST, 
+                           transforms=TRANSFORMS_VALTEST, 
                            target_size=TARGET_SIZE),
 
 dataset_test  = PetDataset(csv_file_path = './data/test.csv',
                            type_trainvaltest='test',
-                           augments=AUG_VALTEST, 
+                           transforms=TRANSFORMS_VALTEST, 
                            target_size=TARGET_SIZE),
 
 
@@ -120,22 +121,28 @@ dataloader_val   = DataLoader(dataset = dataset_val,
                               num_workers = config['num_workers'])
 
 dataloader_test  = DataLoader(dataset = dataset_test,
-                              batch_size = config['batch_size'],
-                              drop_last = config['drop_last'],
-                              shuffle = config['val_shuffle'],
-                              num_workers = config['num_workers'])
+                              batch_size = 1,
+                              drop_last = False,
+                              shuffle = False,
+                              num_workers = 1)
 
 dataloaders = {'train': dataloader_train, 'val': dataloader_val, 'test': dataloader_test}
 
 # %% This throws an error for some reason... need to check.
-# temp = iter(dataloader_train)
-# img, metadata, pawpularity = next(temp)
+for images, metadata, pawpularities in dataloader_train:
+    print(images.shape)
+    print(metadata)
+    print(pawpularities)
 
-# temp = iter(dataloader_val)
-# img, metadata, pawpularity = next(temp)
+# %% This throws an error for some reason... need to check.
+temp = iter(dataloader_train)
+img, metadata, pawpularity = next(temp)
 
-# temp = iter(dataloader_test)
-# img, metadata, pawpularity = next(temp)
+temp = iter(dataloader_val)
+img, metadata, pawpularity = next(temp)
+
+temp = iter(dataloader_test)
+img, metadata, pawpularity = next(temp)
 
 # %% Setup Logging
 TB_name = get_writer_name(config)
@@ -144,9 +151,6 @@ tensorboard = SummaryWriter('./runs/' + TB_name)
 model_weights_name_base = TB_name + '_Epoch_'
 
 MODEL_WEIGHTS_SAVE_PATH
-
-best_val_acc = -float('inf')
-best_val_auc = -float('inf')
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
@@ -210,7 +214,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print(['[Batch {} of {}] loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), loss)])
+                print(['[Iter. {} of {}] loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), loss)])
             
             running_loss = running_loss / total_no_data
             wandb.log({'MSELoss_{}'.format(phase): running_loss})
