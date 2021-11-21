@@ -1,4 +1,6 @@
 # %%
+import os
+import pandas as pd
 from datetime import datetime
 from torchvision.transforms.functional import to_pil_image
 
@@ -18,6 +20,11 @@ def get_writer_name(args, config):
     return writer_name
 
 # %%
+def separate_train_val(csv_path):
+    df = pd.read_csv(csv_path)
+    print(df)
+
+# %%
 def print_config(config_dict):
     print('='*80)
     for key in config_dict.keys():
@@ -30,3 +37,8 @@ def convert_data(image, label):
     label = label.detach().cpu().numpy()
 
     return image, label
+# %%
+if __name__=='__main__':
+    print(os.getcwd())
+    csv_path = '../data/train.csv'
+    separate_train_val(csv_path=csv_path)
