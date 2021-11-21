@@ -18,6 +18,8 @@ class PetDataset(Dataset):
         self.transform = transform
         self.target_size = target_size
         self.testset = testset
+        print(self.df)
+        print('='*90)
     
     def __len__(self):
         return len(self.df)
@@ -36,12 +38,12 @@ class PetDataset(Dataset):
         
         col_index_start = self.df.columns.get_loc('Subject Focus')
         col_index_end   = self.df.columns.get_loc('Blur')
-        metadata = self.df.loc[index].iloc[col_index_start:col_index_end].values.astype(np.float32) # -> np.array
+        metadata = self.df.loc[index].iloc[col_index_start:col_index_end].values.astype(np.int) # -> np.array of ints
 
         if self.testset:
             return img, metadata        # No pawpularity data
         else:
-            pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
+            pawpularity = self.df.loc[index]['Pawpularity'].astype(np.float32) # -> np.float32
             return img, metadata, pawpularity
 
 # %%
