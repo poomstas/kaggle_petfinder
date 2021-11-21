@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+# import numpy as np
+# import pandas as pd
+# import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
 from src.model import Xception #DenseNet121 # Add more as I go here
@@ -72,77 +72,38 @@ criterion = nn.MSELoss()
 # criterion = nn.L1Loss() # output = loss(input, target)
 
 # %% Albumentation Augmentations
-TRANSFORMS_TRAIN = A.Compose([
-    A.HorizontalFlip(p=0.5),
-    A.VerticalFlip(p=0.5),
-    A.OneOf([
-            A.RandomRotate90(p=0.5), 
-            A.Rotate(p=0.5)],
-        p=0.5),
-    A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
-    A.ChannelShuffle(p=0.3),
-    A.Normalize(NORMAL_MEAN, NORMAL_STD),
-    # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
-    ToTensorV2()
-])
+# TRANSFORMS_TRAIN = A.Compose([
+#     A.HorizontalFlip(p=0.5),
+#     A.VerticalFlip(p=0.5),
+#     A.OneOf([
+#             A.RandomRotate90(p=0.5), 
+#             A.Rotate(p=0.5)],
+#         p=0.5),
+#     A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
+#     A.ChannelShuffle(p=0.3),
+#     A.Normalize(NORMAL_MEAN, NORMAL_STD),
+#     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+#     ToTensorV2()
+# ])
 
 # TRANSFORMS_VALTEST = A.Compose([
 #     A.Normalize(NORMAL_MEAN, NORMAL_STD),
 #     ToTensorV2()
 # ])
 
+TRANSFORMS_TRAIN = transforms.Compose([
+    transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
+    transforms.ToTensor()
+])
+
+TRANSFORMS_VALTEST = transforms.Compose([
+    transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
+    transforms.ToTensor()
+])
+
 # %% No separate testing data used. "Test" is used as validation set.
-dataset_train = PetDataset(csv_file_path = './data/separated_train.csv', 
-                           type_trainvaltest='train',
-                           transforms=TRANSFORMS_TRAIN, 
-                           target_size=TARGET_SIZE),
-
-dataset_val   = PetDataset(csv_file_path = './data/separated_val.csv',
-                           type_trainvaltest='val',
-                           transforms=TRANSFORMS_VALTEST, 
-                           target_size=TARGET_SIZE),
-
-dataset_test  = PetDataset(csv_file_path = './data/test.csv',
-                           type_trainvaltest='test',
-                           transforms=TRANSFORMS_VALTEST, 
-                           target_size=TARGET_SIZE),
-
-
-dataloader_train = DataLoader(dataset = dataset_train,
-                              batch_size = config['batch_size'],
-                              drop_last = config['drop_last'],
-                              shuffle = config['train_shuffle'],
-                              num_workers = config['num_workers'])
-
-dataloader_val   = DataLoader(dataset = dataset_val,
-                              batch_size = config['batch_size'],
-                              drop_last = config['drop_last'],
-                              shuffle = config['val_shuffle'],
-                              num_workers = config['num_workers'])
-
-dataloader_test  = DataLoader(dataset = dataset_test,
-                              batch_size = 1,
-                              drop_last = False,
-                              shuffle = False,
-                              num_workers = 1)
-
-dataloaders = {'train': dataloader_train, 'val': dataloader_val, 'test': dataloader_test}
 
 # %% This throws an error for some reason... need to check.
-for images, metadata, pawpularities in dataloader_train:
-    print(images.shape)
-    print(metadata)
-    print(pawpularities)
-
-# %% This throws an error for some reason... need to check.
-temp = iter(dataloader_train)
-img, metadata, pawpularity = next(temp)
-
-temp = iter(dataloader_val)
-img, metadata, pawpularity = next(temp)
-
-temp = iter(dataloader_test)
-img, metadata, pawpularity = next(temp)
 
 # %% Setup Logging
 TB_name = get_writer_name(config)
