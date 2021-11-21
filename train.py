@@ -124,7 +124,8 @@ dataset_val   = PetDataset(csv_fullpath = './data/separated_val.csv',
 dataset_test  = PetDataset(csv_fullpath = './data/test.csv',
                            img_folder ='./data/test',
                            transform=TRANSFORMS_VALTEST, 
-                           target_size=TARGET_SIZE),
+                           target_size=TARGET_SIZE,
+                           testset=True)
 
 
 dataloader_train = DataLoader(dataset = dataset_train,

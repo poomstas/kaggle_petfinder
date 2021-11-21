@@ -12,11 +12,12 @@ from albumentations.pytorch.transforms import ToTensorV2
 
 # %%
 class PetDataset(Dataset):
-    def __init__(self, csv_fullpath, img_folder, transform=None, target_size=299):
+    def __init__(self, csv_fullpath, img_folder, transform=None, target_size=299, testset=False):
         self.df = pd.read_csv(csv_fullpath)
         self.img_folder = img_folder
         self.transform = transform
         self.target_size = target_size
+        self.testset = testset
     
     def __len__(self):
         return len(self.df)
@@ -37,11 +38,11 @@ class PetDataset(Dataset):
         col_index_end   = self.df.columns.get_loc('Blur')
         metadata = self.df.loc[index].iloc[col_index_start:col_index_end].values.astype(np.float32) # -> np.array
 
-        if 'Pawpularity' in self.df.columns:
+        if self.testset:
+            return img, metadata        # No pawpularity data
+        else:
             pawpularity = self.df.loc[index]['Pawpularity'] # -> np.int64
             return img, metadata, pawpularity
-        else:
-            return img, metadata
 
 # %%
 if __name__=='__main__':
