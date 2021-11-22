@@ -45,7 +45,7 @@ config = {
   # Add structural design components here, e.g. Number of hidden layers for diff branches
 }
 
-wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
+wandb.init(project='PetFinder', entity='poomstas')
 wandb.config = config # value reference as: wandb.config.epochs
 
 # %%
@@ -155,14 +155,16 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
         best_loss_epoch = None
 
         for phase in ['train', 'val']:
-            print("[{}] Epoch: {}/{}".format(phase, epoch, num_epochs))
+            if phase=='train':
+                print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
+            print('\t[{}]'.format(phase.upper()))
 
             model.train() if phase=='train' else model.eval()
 
             running_loss = 0.0
             total_no_data = 0
 
-            for batch_index, (images, metadata, pawpularities) in tqdm(enumerate(dataloaders[phase])):
+            for batch_index, (images, metadata, pawpularities) in enumerate(dataloaders[phase]):
                 bs = images.shape[0]
                 images = images.to(device)
                 metadata = metadata.to(device)
@@ -192,7 +194,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t[Iter. {} of {}] Epoch Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
+                print('\t\t[Iter. {} of {}] Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
             
             running_loss = running_loss / total_no_data
             wandb.log({'MSELoss_{}'.format(phase): running_loss})
@@ -204,8 +206,9 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('Saving Model to : {}'.format(model_weights_name))
 
-            print('\nTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
+            print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
+    print('='*90)
     print('Training Complete. Total Training Time: {:.2f} mins'.format((time.time()-start_time)/60))
     print('Best Loss: {:.5f}'.format(best_loss))
     print('Best Loss Epoch: {}'.format(best_loss_epoch))

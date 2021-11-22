@@ -8,6 +8,8 @@ from torchvision.models import *
 
 # %%
 class XceptionImg(nn.Module):
+    ''' "Img" at the end indicates an image-only model (doesn't take in metadata).
+        For testing purpose.  '''
     def __init__(self, pretrained=True):
         super(XceptionImg, self).__init__()
         self.model = xception(num_classes=1000, pretrained='imagenet' if pretrained else False)
