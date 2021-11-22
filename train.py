@@ -169,7 +169,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 pawpularities = pawpularities.to(device)
 
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
-                    pawpulartiy_pred = model(images, metadata)
+                    pawpulartiy_pred = model(images) # Try with only one input for now
+                    # pawpulartiy_pred = model(images, metadata)
                     pawpulartiy_pred = torch.squeeze(pawpulartiy_pred) # See if this is necessary
 
                     loss = criterion(pawpulartiy_pred, pawpularities)
