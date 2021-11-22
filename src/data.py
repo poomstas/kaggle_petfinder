@@ -78,8 +78,10 @@ if __name__=='__main__':
                           shuffle=False,
                           batch_size=4,
                           num_workers=2)
+
     # temp = iter(dataloader)
     # temp.next()
+
     for images, metadata, pawpularities in dl_train:
         print(images.shape)
         print(metadata)

@@ -1,20 +1,16 @@
 # %%
 import os
+import cv2
 import time
-from pprint import pprint
-from numpy.lib.index_tricks import _fill_diagonal_dispatcher
 import torch
 import torch.nn as nn
 from torchvision import transforms
-import matplotlib.image as mpimg
-import cv2
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
-from src.model import Xception #DenseNet121 # Add more as I go here
+from src.model import Xception, DenseNet121 # Add more as I go here
 from src.utils import print_config, separate_train_val, get_writer_name
 from torch.utils.data import DataLoader
 from pathlib import Path
@@ -41,7 +37,7 @@ config = {
   'num_workers': 1,
   'learning_rate': 0.001,
   'min_lr': 1e-10,
-  'patience': 3,
+  'patience': 5,
   'lr_reduction': 0.1,
   'epochs': 30,
   'gpu_index': 0,
@@ -96,16 +92,6 @@ TRANSFORMS_VALTEST = A.Compose([
     ToTensorV2()
 ])
 
-# TRANSFORMS_TRAIN = transforms.Compose([
-#     transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
-#     transforms.ToTensor()
-# ])
-
-# TRANSFORMS_VALTEST = transforms.Compose([
-#     transforms.Normalize(NORMAL_MEAN, NORMAL_STD),
-#     transforms.ToTensor()
-# ])
-
 # %% No separate testing data used. "Test" is used as validation set.
 from src.data import PetDataset
 from torch.utils.data import DataLoader
@@ -120,12 +106,6 @@ dataset_val   = PetDataset(csv_fullpath='./data/separated_val.csv',
                            transform=TRANSFORMS_VALTEST, 
                            target_size=TARGET_SIZE)
 
-dataset_test  = PetDataset(csv_fullpath='./data/test.csv',
-                           img_folder='./data/test',
-                           transform=TRANSFORMS_VALTEST, 
-                           target_size=TARGET_SIZE,
-                           testset=True)
-
 dataloader_train = DataLoader(dataset = dataset_train,
                               batch_size = config['batch_size'],
                               drop_last = config['drop_last'],
@@ -138,57 +118,7 @@ dataloader_val   = DataLoader(dataset = dataset_val,
                               shuffle = config['val_shuffle'],
                               num_workers = config['num_workers'])
 
-dataloader_test  = DataLoader(dataset = dataset_test,
-                              batch_size = 1,
-                              drop_last = False,
-                              shuffle = False,
-                              num_workers = 1)
-
-dataloaders = {'train': dataloader_train, 'val': dataloader_val, 'test': dataloader_test}
-
-# %%
-# dataset_train = PetDataset(csv_fullpath='./data/separated_train.csv', 
-#                            img_folder='./data/train', 
-#                            transform=TRANSFORMS_TRAIN, 
-#                            target_size=TARGET_SIZE)
-
-# # bs = config['batch_size']
-
-# dl_train = DataLoader(dataset=dataset_train,
-#                       batch_size=config['batch_size'],
-#                       drop_last=config['drop_last'],
-#                       shuffle=config['train_shuffle'],
-#                       num_workers=config['num_workers'])
-
-# dl_train = DataLoader(dataset=ds_train,
-#                       batch_size=32,
-#                       drop_last=False,
-#                       shuffle=True,
-#                       num_workers=1)
-
-# for images, metadata, pawpularities in dl_train:
-# for i, (images, metadata, pawpularities) in enumerate(dataloader_val):
-#     if i > 3:
-#         break
-#     print('='*90)
-#     print(images.shape)
-#     print(metadata)
-#     print(pawpularities)
-
-# %% This throws an error for some reason... need to check.
-# for images, metadata in dataloader_test:
-#     print(images.shape)
-#     print(metadata)
-# print('='*90)
-# for images, metadata, pawpularities in dataloader_train:
-#     print(images.shape)
-#     print(metadata)
-#     print(pawpularities)
-
-# %% This throws an error for some reason... need to check.
-# img, metadata, pawpularity = next(iter(dataloader_train)) # This one doesn't work.
-# img, metadata, pawpularity = next(iter(dataloader_val)) # This one doesn't work.
-# img, metadata              = next(iter(dataloader_test)) # This seems to work correctly.
+dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 
 # %% Setup Logging
 TB_name = get_writer_name(config)
