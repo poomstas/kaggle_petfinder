@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
-from src.model import Xception, DenseNet121 # Add more as I go here
+from src.model import Xception, XceptionImg, DenseNet121 # Add more as I go here
 from src.utils import print_config, separate_train_val, get_writer_name
 from torch.utils.data import DataLoader
 from pathlib import Path
@@ -29,7 +29,7 @@ separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC)
 # %%
 config = {
   'gpu_index': 0,
-  'model': 'Xception',
+  'model': 'XceptionImg',
   'batch_size': 32,
   'drop_last': False,
   'train_shuffle': True,
@@ -41,7 +41,7 @@ config = {
   'lr_reduction': 0.1,
   'epochs': 30,
   'gpu_index': 0,
-  'TB_note': ''
+  'TB_note': 'image-only_model_to_check_training_code_is_functional'
   # Add structural design components here, e.g. Number of hidden layers for diff branches
 }
 
@@ -53,8 +53,14 @@ DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_ava
 print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
 print_config(config)
 
-if config['model'] == 'Xception':
+if config['model'] in ['Xception']:
     model = Xception().to(DEVICE)
+    TARGET_SIZE = 299
+    NORMAL_MEAN = [0.5, 0.5, 0.5]
+    NORMAL_STD = [0.5, 0.5, 0.5]
+
+elif config['model'] == 'XceptionImg':
+    model = XceptionImg().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
@@ -123,10 +129,8 @@ dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 # %% Setup Logging
 TB_name = get_writer_name(config)
 wandb.run.name = TB_name
-tensorboard = SummaryWriter('./runs/' + TB_name)
+tensorboard = SummaryWriter(MODEL_WEIGHTS_SAVE_PATH + TB_name)
 model_weights_name_base = TB_name + '_Epoch_'
-
-MODEL_WEIGHTS_SAVE_PATH
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
@@ -153,10 +157,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
         for phase in ['train', 'val']:
             print("[{}] Epoch: {}/{}".format(phase, epoch, num_epochs))
 
-            if phase == 'train':
-                model.train()
-            elif phase == 'val':
-                model.eval()
+            model.train() if phase=='train' else model.eval()
 
             running_loss = 0.0
             total_no_data = 0
@@ -190,7 +191,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print(['[Iter. {} of {}] loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), loss)])
+                print('\t[Iter. {} of {}] Epoch Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
             
             running_loss = running_loss / total_no_data
             wandb.log({'MSELoss_{}'.format(phase): running_loss})
@@ -202,7 +203,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('Saving Model to : {}'.format(model_weights_name))
 
-            print('Total Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
+            print('\nTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
     print('Training Complete. Total Training Time: {:.2f} mins'.format((time.time()-start_time)/60))
     print('Best Loss: {:.5f}'.format(best_loss))
@@ -211,4 +212,4 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 # %%
 if __name__=='__main__':
     train_model(model, dataloaders, criterion, optimizer, 
-                lr_scheduler, config['epochs'], DEVICE, print_samples=True)
+                None, config['epochs'], DEVICE, print_samples=False)
