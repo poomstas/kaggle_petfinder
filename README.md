@@ -7,6 +7,8 @@ The challenge is to generate a regression model that predicts the score represen
 
 ![Training Data](https://github.com/poomstas/kaggle_petfinder/blob/dev/markdown/training_data.png "Training Data")
 
+## Novelty
+- Use of embedding layers to...
 
 ## Training, Validation, Testing Data Structure
 The original dataset provides summarized .csv files for training and testing. In this work, I separate the training data into training and validation.
