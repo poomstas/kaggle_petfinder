@@ -41,7 +41,7 @@ config = {
   'lr_reduction': 0.1,
   'epochs': 30,
   'gpu_index': 0,
-  'TB_note': 'image-only_model_to_check_training_code_is_functional'
+  'TB_note': 'image-only model to check training code is functional'
   # Add structural design components here, e.g. Number of hidden layers for diff branches
 }
 

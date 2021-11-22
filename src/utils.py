@@ -37,7 +37,8 @@ def get_writer_name(config):
             datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     if config['TB_note'] != "":
-        writer_name += "_" + config.TB_note
+        TB_text = config['TB_note'].replace(' ', '_') # Replace spaces with underscore
+        writer_name += "_" + TB_text
 
     print('TensorBoard Name: {}'.format(writer_name))
 
