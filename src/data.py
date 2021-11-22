@@ -13,11 +13,14 @@ from albumentations.pytorch.transforms import ToTensorV2
 # %%
 class PetDataset(Dataset):
     def __init__(self, csv_fullpath, img_folder, transform=None, target_size=299, testset=False):
-        self.df = pd.read_csv(csv_fullpath)
-        self.img_folder = img_folder
-        self.transform = transform
-        self.target_size = target_size
-        self.testset = testset
+        self.df                         = pd.read_csv(csv_fullpath)
+        self.img_folder                 = img_folder
+        self.transform                  = transform
+        self.target_size                = target_size
+        self.testset                    = testset
+        self.metadata_col_index_start   = self.df.columns.get_loc('Subject Focus')
+        self.metadata_col_index_end     = self.df.columns.get_loc('Blur')
+
         print(self.df)
         print('='*90)
     
@@ -36,9 +39,9 @@ class PetDataset(Dataset):
         if self.transform is not None:
             img = self.transform(image=img)["image"]
         
-        col_index_start = self.df.columns.get_loc('Subject Focus')
-        col_index_end   = self.df.columns.get_loc('Blur')
-        metadata = self.df.loc[index].iloc[col_index_start:col_index_end].values.astype(np.int) # -> np.array of ints
+        start_indx = self.metadata_col_index_start
+        end_indx   = self.metadata_col_index_end
+        metadata   = self.df.loc[index].iloc[start_indx:end_indx].values.astype(np.int) # -> np.array of ints
 
         if self.testset:
             return img, metadata        # No pawpularity data

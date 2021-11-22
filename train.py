@@ -1,6 +1,8 @@
 # %%
 import os
 import time
+from pprint import pprint
+from numpy.lib.index_tricks import _fill_diagonal_dispatcher
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -32,11 +34,11 @@ separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC)
 config = {
   'gpu_index': 0,
   'model': 'Xception',
-  'batch_size': 128,
+  'batch_size': 32,
   'drop_last': False,
   'train_shuffle': True,
   'val_shuffle': False,
-  'num_workers': 8,
+  'num_workers': 1,
   'learning_rate': 0.001,
   'min_lr': 1e-10,
   'patience': 3,
@@ -104,29 +106,25 @@ TRANSFORMS_VALTEST = A.Compose([
 #     transforms.ToTensor()
 # ])
 
-# %%
-os.getcwd()
 # %% No separate testing data used. "Test" is used as validation set.
 from src.data import PetDataset
 from torch.utils.data import DataLoader
 
-dataset_train = PetDataset(csv_fullpath = './data/separated_train.csv', 
-                           img_folder ='./data/train',
+dataset_train = PetDataset(csv_fullpath='./data/separated_train.csv', 
+                           img_folder='./data/train', 
                            transform=TRANSFORMS_TRAIN, 
-                           target_size=TARGET_SIZE),
+                           target_size=TARGET_SIZE)
 
-dataset_val   = PetDataset(csv_fullpath = './data/separated_val.csv',
-                           img_folder ='./data/train',
+dataset_val   = PetDataset(csv_fullpath='./data/separated_val.csv',
+                           img_folder='./data/train',
                            transform=TRANSFORMS_VALTEST, 
-                           target_size=TARGET_SIZE),
+                           target_size=TARGET_SIZE)
 
-''' Test Datasets are missing the last column: Pawpularity. Make sure to account for this correctly.'''
-dataset_test  = PetDataset(csv_fullpath = './data/test.csv',
-                           img_folder ='./data/test',
+dataset_test  = PetDataset(csv_fullpath='./data/test.csv',
+                           img_folder='./data/test',
                            transform=TRANSFORMS_VALTEST, 
                            target_size=TARGET_SIZE,
                            testset=True)
-
 
 dataloader_train = DataLoader(dataset = dataset_train,
                               batch_size = config['batch_size'],
@@ -148,16 +146,49 @@ dataloader_test  = DataLoader(dataset = dataset_test,
 
 dataloaders = {'train': dataloader_train, 'val': dataloader_val, 'test': dataloader_test}
 
-# %% This throws an error for some reason... need to check.
-for images, metadata, pawpularities in dataloader_train:
-    print(images.shape)
-    print(metadata)
-    print(pawpularities)
+# %%
+# dataset_train = PetDataset(csv_fullpath='./data/separated_train.csv', 
+#                            img_folder='./data/train', 
+#                            transform=TRANSFORMS_TRAIN, 
+#                            target_size=TARGET_SIZE)
+
+# # bs = config['batch_size']
+
+# dl_train = DataLoader(dataset=dataset_train,
+#                       batch_size=config['batch_size'],
+#                       drop_last=config['drop_last'],
+#                       shuffle=config['train_shuffle'],
+#                       num_workers=config['num_workers'])
+
+# dl_train = DataLoader(dataset=ds_train,
+#                       batch_size=32,
+#                       drop_last=False,
+#                       shuffle=True,
+#                       num_workers=1)
+
+# for images, metadata, pawpularities in dl_train:
+# for i, (images, metadata, pawpularities) in enumerate(dataloader_val):
+#     if i > 3:
+#         break
+#     print('='*90)
+#     print(images.shape)
+#     print(metadata)
+#     print(pawpularities)
 
 # %% This throws an error for some reason... need to check.
-# img, metadata, pawpularity = next(iter(dataloader_train))
-# img, metadata, pawpularity = next(iter(dataloader_val))
-# img, metadata, pawpularity = next(iter(dataloader_test))
+# for images, metadata in dataloader_test:
+#     print(images.shape)
+#     print(metadata)
+# print('='*90)
+# for images, metadata, pawpularities in dataloader_train:
+#     print(images.shape)
+#     print(metadata)
+#     print(pawpularities)
+
+# %% This throws an error for some reason... need to check.
+# img, metadata, pawpularity = next(iter(dataloader_train)) # This one doesn't work.
+# img, metadata, pawpularity = next(iter(dataloader_val)) # This one doesn't work.
+# img, metadata              = next(iter(dataloader_test)) # This seems to work correctly.
 
 # %% Setup Logging
 TB_name = get_writer_name(config)
