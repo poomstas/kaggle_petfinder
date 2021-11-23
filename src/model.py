@@ -26,7 +26,7 @@ class XceptionImg(nn.Module):
         out = F.relu(self.fc1(out))
         out = F.relu(self.fc2(out))
         out = F.relu(self.fc3(out))
-        out = F.relu(self.fcOut(out))
+        out = self.fcOut(out)
         return out
 
 # %%
