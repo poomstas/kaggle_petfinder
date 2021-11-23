@@ -184,8 +184,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         optimizer.step()
                         optimizer.zero_grad()
 
-                    if phase=='train' and lr_scheduler is not None:
-                        lr_scheduler.step()
+                    if phase=='val' and lr_scheduler is not None:
+                        lr_scheduler.step(metrics=loss)
 
                     if print_samples and batch_index == 0:
                         print('='*90)
@@ -216,4 +216,4 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 # %%
 if __name__=='__main__':
     train_model(model, dataloaders, criterion, optimizer, 
-                None, config['epochs'], DEVICE, print_samples=False)
+                lr_scheduler, config['epochs'], DEVICE, print_samples=False)
