@@ -1,21 +1,16 @@
 # %%
-import os
-import cv2
+import sys
+import wandb
 import time
+import argparse
 import torch
 import torch.nn as nn
-from torchvision import transforms
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import albumentations as A
-from tqdm import tqdm
-from src.model import Xception, XceptionImg, DenseNet121 # Add more as I go here
-from src.utils import print_config, separate_train_val, get_writer_name
+from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
+from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
 from torch.utils.data import DataLoader
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
-import wandb
 
 # %%
 TRAIN_CSV_PATH = './data/train.csv'
@@ -24,52 +19,43 @@ VAL_FRAC = 0.1
 
 MODEL_WEIGHTS_SAVE_PATH = './weights/'
 
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC)
+separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345)
 
-# %%
-config = {
-  'gpu_index': 0,
-  'model': 'XceptionImg',
-  'batch_size': 32,
-  'drop_last': False,
-  'train_shuffle': True,
-  'val_shuffle': False,
-  'num_workers': 1,
-  'learning_rate': 0.001,
-  'min_lr': 1e-10,
-  'patience': 5,
-  'lr_reduction': 0.1,
-  'epochs': 30,
-  'gpu_index': 0,
-  'TB_note': 'image-only model to check training code is functional'
-  # Add structural design components here, e.g. Number of hidden layers for diff branches
-}
+# %% For the case where we retrieve the hyperparameter values from CLI
+parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
+args = parse_arguments(parser) # Reference values like so: args.alpha 
+config = get_dict_from_args(args)
 
-wandb.init(project='PetFinder', entity='poomstas')
+wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
 wandb.config = config # value reference as: wandb.config.epochs
+
+# %% For the case where we retrieve the hyperparameter values from W&B
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
 print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
 print_config(config)
 
-if config['model'] in ['Xception']:
+if config['model'].upper() == 'XCEPTION':
     model = Xception().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
-elif config['model'] == 'XceptionImg':
+elif config['model'].upper() == 'XCEPTIONIMG':
     model = XceptionImg().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
-elif config['model'] == 'DenseNet121':
+elif config['model'].upper() == 'DENSENET121':
     model = DenseNet121().to(DEVICE)
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
+else:
+    print('Specified model does not exist.')
+    sys.exit()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
 criterion = nn.MSELoss()
@@ -184,9 +170,6 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         optimizer.step()
                         optimizer.zero_grad()
 
-                    if phase=='val' and lr_scheduler is not None:
-                        lr_scheduler.step(metrics=loss)
-
                     if print_samples and batch_index == 0:
                         print('='*90)
                         print('Image Shape: {}'.format(images.shape))
@@ -195,11 +178,14 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('='*90)
 
                 print('\t\t[Iter. {} of {}] Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
+
+            if phase=='val' and lr_scheduler is not None:
+                lr_scheduler.step(metrics=loss)
             
             running_loss = running_loss / total_no_data
             wandb.log({'MSELoss_{}'.format(phase): running_loss})
 
-            if phase == 'Val' and running_loss < best_loss:
+            if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
                 Path('./model_save').mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
@@ -215,5 +201,5 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 
 # %%
 if __name__=='__main__':
-    train_model(model, dataloaders, criterion, optimizer, 
-                lr_scheduler, config['epochs'], DEVICE, print_samples=False)
+    train_model(model, dataloaders, criterion, optimizer, lr_scheduler, 
+                config['epochs'], DEVICE, print_samples=False)

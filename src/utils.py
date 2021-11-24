@@ -48,7 +48,7 @@ def get_writer_name(config):
 # %%
 def parse_arguments(parser):
     parser.add_argument('--gpu_index',      type=int,   default=0,           help='GPU Index, default at 0')
-    parser.add_argument('--model',          type=str,   default='xception',  help='Backbone Model')
+    parser.add_argument('--model',          type=str,   default='xceptionimg',  help='Backbone Model')
     parser.add_argument('--batch_size',     type=int,   default=32,          help='Batch Size')
     parser.add_argument('--drop_last',      type=bool,  default=False,       help='Drop last mismatched batch')
     parser.add_argument('--train_shuffle',  type=bool,  default=True,        help='Shuffle training data')
