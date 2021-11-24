@@ -135,11 +135,11 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
         - Mean Squared Error (MSE) / Root Mean Squared Error (RMSE)
         - Mean Absolute Error (MAE) '''
 
-    for epoch in range(1, num_epochs+1):
-        start_time = time.time()
-        best_loss = float('inf')
-        best_loss_epoch = None
+    start_time = time.time()
+    best_loss = float('inf')
+    best_loss_epoch = None
 
+    for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
