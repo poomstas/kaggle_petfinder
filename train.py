@@ -3,7 +3,6 @@ import os
 import sys
 import wandb
 import time
-import argparse
 import torch
 import torch.nn as nn
 import albumentations as A
@@ -19,13 +18,28 @@ TRAIN_CSV_PATH = './data/train.csv'
 TEST_CSV_PATH = './data/test.csv'
 MODEL_SAVE_PATH = './model_save/'
 
-# %% For the case where we retrieve the hyperparameter values from CLI
-parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
-args = parse_arguments(parser) # Reference values like so: args.alpha 
-config = get_dict_from_args(args)
+# %% Hyperparameter configuration
+config = {
+    'gpu_index':      0,              # GPU Index, default at 0
+    'model':          'xceptionimg',  # Backbone Model
+    'batch_size':     32,             # Batch Size
+    'drop_last':      False,          # Drop last mismatched batch
+    'train_shuffle':  True,           # Shuffle training data
+    'val_shuffle':    False,          # Shuffle validation data
+    'num_workers':    1,              # Number of workers for DataLoader
+    'lr':             0.001,          # Learning rate
+    'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
+    'lr_patience':    5,              # Patience for learning rate plateau detection
+    'lr_reduction':   0.1,            # Learning rate reduction factor in case of plateau
+    'abridge_frac':   0.1,            # Fraction of the original training data to be used for train+val
+    'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
+    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
+    'epochs':         30,             # Total number of epochs to train over
+    'note':           '',             # Note to leave on TensorBoard and W&B
+}
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
-wandb.config = config # For theh case where we retrieve the hyperparameter values from W&B
+config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
 preprocess_data(TRAIN_CSV_PATH, val_frac=config['val_frac'], abridge_frac=config['abridge_frac'], scale_target=config['scale_target'])

@@ -1,10 +1,8 @@
 # %%
-import os
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from datetime import datetime
-from torchvision.transforms.functional import to_pil_image
 
 # %%
 def print_config(config_dict):
