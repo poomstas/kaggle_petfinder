@@ -7,15 +7,6 @@ from datetime import datetime
 from torchvision.transforms.functional import to_pil_image
 
 # %%
-def create_folder(directory):
-    try:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            print('Complete: Created directory. ' + directory)
-    except OSError:
-        print('Error: Creating directory. ' + directory)
-
-# %%
 def print_config(config_dict):
     print('='*80)
     for key in config_dict.keys():

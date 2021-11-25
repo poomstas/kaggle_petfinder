@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args, create_folder
+from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
 from torch.utils.data import DataLoader
 from pathlib import Path
 
@@ -18,6 +18,7 @@ TEST_CSV_PATH = './data/test.csv'
 VAL_FRAC = 0.1
 # ABRIDGE_FRAC = 1.0 
 ABRIDGE_FRAC = 0.1
+WANDB_MODE = 'online' # disabled or online
 
 MODEL_SAVE_PATH = './model_save/'
 
@@ -28,10 +29,8 @@ parser = argparse.ArgumentParser(description='Parse hyperparameter arguments fro
 args = parse_arguments(parser) # Reference values like so: args.alpha 
 config = get_dict_from_args(args)
 
-wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
-wandb.config = config # value reference as: wandb.config.epochs
-
-# %% For the case where we retrieve the hyperparameter values from W&B
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode=WANDB_MODE)
+wandb.config = config # For theh case where we retrieve the hyperparameter values from W&B
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
@@ -118,7 +117,6 @@ dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 # %% Setup Logging
 case_name = get_writer_name(config)
 wandb.run.name = case_name
-create_folder(os.path.join(MODEL_SAVE_PATH, case_name))
 model_weights_name_base = os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_')
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -191,7 +189,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
-                Path('./model_save').mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
+                Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('\n\nSaving Model to : {}'.format(model_weights_name))
                 torch.save(model.state_dict(), model_weights_name)
