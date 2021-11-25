@@ -9,28 +9,26 @@ import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, parse_arguments, get_dict_from_args
-from torch.utils.data import DataLoader
 from pathlib import Path
+from albumentations.pytorch.transforms import ToTensorV2
+from src.data import PetDataset
+from torch.utils.data import DataLoader
 
 # %%
 TRAIN_CSV_PATH = './data/train.csv'
 TEST_CSV_PATH = './data/test.csv'
-VAL_FRAC = 0.1
-# ABRIDGE_FRAC = 1.0 
-ABRIDGE_FRAC = 0.1
-WANDB_MODE = 'online' # disabled or online
-SCALE_TARGET = True
 MODEL_SAVE_PATH = './model_save/'
-
-preprocess_data(TRAIN_CSV_PATH, val_frac=VAL_FRAC, abridge_frac=ABRIDGE_FRAC, scale_target=SCALE_TARGET)
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
 args = parse_arguments(parser) # Reference values like so: args.alpha 
 config = get_dict_from_args(args)
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode=WANDB_MODE)
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
 wandb.config = config # For theh case where we retrieve the hyperparameter values from W&B
+
+# %%
+preprocess_data(TRAIN_CSV_PATH, val_frac=config['val_frac'], abridge_frac=config['abridge_frac'], scale_target=config['scale_target'])
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
@@ -65,8 +63,6 @@ criterion = nn.MSELoss()
 # criterion = nn.L1Loss() # output = loss(input, target)
 
 # %% Albumentation Augmentations
-from albumentations.pytorch.transforms import ToTensorV2
-
 TRANSFORMS_TRAIN = A.Compose([
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
@@ -89,9 +85,6 @@ TRANSFORMS_VALTEST = A.Compose([
 # TODO Figure out how to sync the augmentation information with W&B
 
 # %% No separate testing data used. "Test" is used as validation set.
-from src.data import PetDataset
-from torch.utils.data import DataLoader
-
 dataset_train = PetDataset(csv_fullpath='./data/separated_train.csv', 
                            img_folder='./data/train', 
                            transform=TRANSFORMS_TRAIN, 
