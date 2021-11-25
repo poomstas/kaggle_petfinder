@@ -14,8 +14,10 @@ def print_config(config_dict):
     print('='*80)
 
 # %%
-def separate_train_val(csv_path, val_frac, random_state=12345):
+def separate_train_val(csv_path, val_frac, random_state=12345, abridged=False):
     df = pd.read_csv(csv_path)
+    if abridged:
+        df = df.sample(frac=0.1, replace=False)
     n_val = int(len(df) * val_frac)
     df_train, df_val = train_test_split(df, test_size=n_val, random_state=random_state)
 
@@ -33,15 +35,15 @@ def separate_train_val(csv_path, val_frac, random_state=12345):
 # %%
 def get_writer_name(config):
     writer_name = \
-        "PetFindr_{}_LR_{}_BS_{}_nEpoch_{}".format(
+        "PetFindr_{}_LR_{}_BS_{}_nEpoch_{}_{}".format(
             config['model'], config['learning_rate'], config['batch_size'], config['epochs'], 
             datetime.now().strftime("%Y%m%d_%H%M%S"))
 
-    if config['TB_note'] != "":
-        TB_text = config['TB_note'].replace(' ', '_') # Replace spaces with underscore
+    if config['note'] != "":
+        TB_text = config['note'].replace(' ', '_') # Replace spaces with underscore
         writer_name += "_" + TB_text
 
-    print('TensorBoard Name: {}'.format(writer_name))
+    print('Case Name: {}'.format(writer_name))
 
     return writer_name
 
@@ -59,7 +61,7 @@ def parse_arguments(parser):
     parser.add_argument('--patience',       type=int,   default=5,           help='Patience for learning rate plateau detection')
     parser.add_argument('--lr_reduction',   type=float, default=0.1,         help='Learning rate reduction factor in case of plateau')
     parser.add_argument('--epochs',         type=int,   default=30,          help='Total number of epochs to train over')
-    parser.add_argument('--TB_note',        type=str,   default="",          help='Note to leave on TensorBoard and W&B')
+    parser.add_argument('--note',           type=str,   default="",          help='Note to leave on TensorBoard and W&B')
 
     args = parser.parse_args()
 
