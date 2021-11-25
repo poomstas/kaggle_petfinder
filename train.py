@@ -1,4 +1,5 @@
 # %%
+import os
 import sys
 import wandb
 import time
@@ -10,7 +11,6 @@ from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
 from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
 from torch.utils.data import DataLoader
 from pathlib import Path
-from torch.utils.tensorboard import SummaryWriter
 
 # %%
 TRAIN_CSV_PATH = './data/train.csv'
@@ -19,7 +19,7 @@ VAL_FRAC = 0.1
 
 MODEL_WEIGHTS_SAVE_PATH = './weights/'
 
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345)
+separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridged=True)
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
@@ -53,6 +53,7 @@ elif config['model'].upper() == 'DENSENET121':
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
+
 else:
     print('Specified model does not exist.')
     sys.exit()
@@ -113,10 +114,9 @@ dataloader_val   = DataLoader(dataset = dataset_val,
 dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 
 # %% Setup Logging
-TB_name = get_writer_name(config)
-wandb.run.name = TB_name
-tensorboard = SummaryWriter(MODEL_WEIGHTS_SAVE_PATH + TB_name)
-model_weights_name_base = TB_name + '_Epoch_'
+case_name = get_writer_name(config)
+wandb.run.name = case_name
+model_weights_name_base = os.path.join(MODEL_WEIGHTS_SAVE_PATH, case_name, 'Epoch_')
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
@@ -166,9 +166,9 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                     total_no_data += bs
 
                     if phase=='train':
+                        optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
-                        optimizer.zero_grad()
 
                     if print_samples and batch_index == 0:
                         print('='*90)
@@ -190,7 +190,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 best_loss_epoch = epoch
                 Path('./model_save').mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
-                print('Saving Model to : {}'.format(model_weights_name))
+                print('\n\nSaving Model to : {}'.format(model_weights_name))
+                # Actually save model
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
