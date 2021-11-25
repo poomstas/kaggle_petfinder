@@ -16,10 +16,12 @@ from pathlib import Path
 TRAIN_CSV_PATH = './data/train.csv'
 TEST_CSV_PATH = './data/test.csv'
 VAL_FRAC = 0.1
+# ABRIDGE_FRAC = 1.0 
+ABRIDGE_FRAC = 0.1
 
 MODEL_SAVE_PATH = './model_save/'
 
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridge_frac=0.2)
+separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridge_frac=ABRIDGE_FRAC)
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
@@ -58,7 +60,7 @@ else:
     print('Specified model does not exist.')
     sys.exit()
 
-optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
+optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 criterion = nn.MSELoss()
 # criterion = ignite.metrics.MeanAbsoluteError
 # criterion = nn.L1Loss() # output = loss(input, target)
@@ -123,8 +125,8 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
                     mode = 'min',
                     factor = config['lr_reduction'],
-                    patience = config['patience'],
-                    min_lr = config['min_lr'],
+                    patience = config['lr_patience'],
+                    min_lr = config['lr_min'],
                     verbose = True)
 
 # %%
