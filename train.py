@@ -19,7 +19,7 @@ VAL_FRAC = 0.1
 
 MODEL_WEIGHTS_SAVE_PATH = './weights/'
 
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridged=True)
+separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridge_frac=0.2)
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')

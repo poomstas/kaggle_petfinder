@@ -14,10 +14,13 @@ def print_config(config_dict):
     print('='*80)
 
 # %%
-def separate_train_val(csv_path, val_frac, random_state=12345, abridged=False):
+def separate_train_val(csv_path, val_frac, abridge_frac=1.0, random_state=12345):
     df = pd.read_csv(csv_path)
-    if abridged:
-        df = df.sample(frac=0.1, replace=False)
+
+    if abridge_frac != 1.0:
+        print('Total dataset abridged by a factor of {:.2f} before splitting.'.format(abridge_frac))
+        df = df.sample(frac=abridge_frac, replace=False)
+
     n_val = int(len(df) * val_frac)
     df_train, df_val = train_test_split(df, test_size=n_val, random_state=random_state)
 
