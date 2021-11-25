@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
+from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args, create_folder
 from torch.utils.data import DataLoader
 from pathlib import Path
 
@@ -17,7 +17,7 @@ TRAIN_CSV_PATH = './data/train.csv'
 TEST_CSV_PATH = './data/test.csv'
 VAL_FRAC = 0.1
 
-MODEL_WEIGHTS_SAVE_PATH = './weights/'
+MODEL_SAVE_PATH = './model_save/'
 
 separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridge_frac=0.2)
 
@@ -116,7 +116,8 @@ dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 # %% Setup Logging
 case_name = get_writer_name(config)
 wandb.run.name = case_name
-model_weights_name_base = os.path.join(MODEL_WEIGHTS_SAVE_PATH, case_name, 'Epoch_')
+create_folder(os.path.join(MODEL_SAVE_PATH, case_name))
+model_weights_name_base = os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_')
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
@@ -191,7 +192,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 Path('./model_save').mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('\n\nSaving Model to : {}'.format(model_weights_name))
-                # Actually save model
+                torch.save(model.state_dict(), model_weights_name)
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
