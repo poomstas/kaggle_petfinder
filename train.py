@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
+from src.utils import print_config, preprocess_data, get_writer_name, parse_arguments, get_dict_from_args
 from torch.utils.data import DataLoader
 from pathlib import Path
 
@@ -19,10 +19,10 @@ VAL_FRAC = 0.1
 # ABRIDGE_FRAC = 1.0 
 ABRIDGE_FRAC = 0.1
 WANDB_MODE = 'online' # disabled or online
-
+SCALE_TARGET = True
 MODEL_SAVE_PATH = './model_save/'
 
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345, abridge_frac=ABRIDGE_FRAC)
+preprocess_data(TRAIN_CSV_PATH, val_frac=VAL_FRAC, abridge_frac=ABRIDGE_FRAC, scale_target=SCALE_TARGET)
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
@@ -85,6 +85,8 @@ TRANSFORMS_VALTEST = A.Compose([
     A.Normalize(NORMAL_MEAN, NORMAL_STD),
     ToTensorV2()
 ])
+
+# TODO Figure out how to sync the augmentation information with W&B
 
 # %% No separate testing data used. "Test" is used as validation set.
 from src.data import PetDataset
@@ -160,7 +162,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
                     pawpulartiy_pred = model(images) # Try with only one input for now
                     # pawpulartiy_pred = model(images, metadata)
-                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred) # See if this is necessary
+                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred)
 
                     loss = criterion(pawpulartiy_pred, pawpularities)
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
@@ -178,7 +180,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
+                print('\t\t[Iter. {} of {}] Loss: {:.5f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
 
             if phase=='val' and lr_scheduler is not None:
                 lr_scheduler.step(metrics=loss)
