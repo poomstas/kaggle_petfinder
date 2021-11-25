@@ -31,7 +31,7 @@ config = {
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    5,              # Patience for learning rate plateau detection
     'lr_reduction':   0.1,            # Learning rate reduction factor in case of plateau
-    'abridge_frac':   0.1,            # Fraction of the original training data to be used for train+val
+    'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
     'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
     'epochs':         30,             # Total number of epochs to train over
