@@ -1,10 +1,8 @@
 # %%
-import os
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from datetime import datetime
-from torchvision.transforms.functional import to_pil_image
 
 # %%
 def print_config(config_dict):
@@ -42,7 +40,7 @@ def preprocess_data(csv_path, val_frac, abridge_frac=1.0, scale_target=True, ran
 # %%
 def get_writer_name(config):
     writer_name = \
-        "PetFindr_{}_LR_{}_BS_{}_nEpoch_{}_{}".format(
+        "PetFindr_{}_LR_{:.5f}_BS_{}_nEpoch_{}_{}".format(
             config['model'], config['lr'], config['batch_size'], config['epochs'], 
             datetime.now().strftime("%Y%m%d_%H%M%S"))
 
