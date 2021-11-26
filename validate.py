@@ -74,7 +74,7 @@ pawpularities_collect, pawpularities_pred_collect = [], []
 for batch_index, (images, metadata, pawpularities) in tqdm(enumerate(dataloader_val), total=len(dataloader_val)):
 
     pawpularities_collect.extend(pawpularities.tolist())
-    pred = model(images.to(DEVICE))
+    pred = model(images.to(DEVICE), metadata.to(DEVICE))
     pawpularities_pred_collect.extend(pred.detach().to('cpu').numpy().tolist())
 
 pawpularities_pred_collect = np.squeeze(pawpularities_pred_collect)

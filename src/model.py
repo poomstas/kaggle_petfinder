@@ -21,7 +21,7 @@ class XceptionImg(nn.Module):
         self.fcOut = nn.Linear(128, 1)
         # Use dropout layers somewhere?
 
-    def forward(self, img):
+    def forward(self, img, metadata): # Take metadata here for consistency but don't use it here.
         out = F.relu(self.model(img))
         out = F.relu(self.fc1(out))
         out = F.relu(self.fc2(out))
