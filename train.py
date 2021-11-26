@@ -1,4 +1,5 @@
 # %%
+import os
 import sys
 import wandb
 import time
@@ -7,29 +8,27 @@ import torch
 import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, separate_train_val, get_writer_name, parse_arguments, get_dict_from_args
-from torch.utils.data import DataLoader
+from src.utils import print_config, preprocess_data, get_writer_name, parse_arguments, get_dict_from_args
 from pathlib import Path
-from torch.utils.tensorboard import SummaryWriter
+from albumentations.pytorch.transforms import ToTensorV2
+from src.data import PetDataset
+from torch.utils.data import DataLoader
 
 # %%
 TRAIN_CSV_PATH = './data/train.csv'
 TEST_CSV_PATH = './data/test.csv'
-VAL_FRAC = 0.1
-
-MODEL_WEIGHTS_SAVE_PATH = './weights/'
-
-separate_train_val(TRAIN_CSV_PATH, val_frac=VAL_FRAC, random_state=12345)
+MODEL_SAVE_PATH = './model_save/'
 
 # %% For the case where we retrieve the hyperparameter values from CLI
 parser = argparse.ArgumentParser(description='Parse hyperparameter arguments from CLI')
 args = parse_arguments(parser) # Reference values like so: args.alpha 
 config = get_dict_from_args(args)
 
-wandb.init(project='PetFinder', entity='poomstas', mode='disabled')
-wandb.config = config # value reference as: wandb.config.epochs
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
+wandb.config = config # For theh case where we retrieve the hyperparameter values from W&B
 
-# %% For the case where we retrieve the hyperparameter values from W&B
+# %%
+preprocess_data(TRAIN_CSV_PATH, val_frac=config['val_frac'], abridge_frac=config['abridge_frac'], scale_target=config['scale_target'])
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
@@ -53,18 +52,17 @@ elif config['model'].upper() == 'DENSENET121':
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
+
 else:
     print('Specified model does not exist.')
     sys.exit()
 
-optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
+optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 criterion = nn.MSELoss()
 # criterion = ignite.metrics.MeanAbsoluteError
 # criterion = nn.L1Loss() # output = loss(input, target)
 
 # %% Albumentation Augmentations
-from albumentations.pytorch.transforms import ToTensorV2
-
 TRANSFORMS_TRAIN = A.Compose([
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
@@ -84,10 +82,9 @@ TRANSFORMS_VALTEST = A.Compose([
     ToTensorV2()
 ])
 
-# %% No separate testing data used. "Test" is used as validation set.
-from src.data import PetDataset
-from torch.utils.data import DataLoader
+# TODO Figure out how to sync the augmentation information with W&B
 
+# %% No separate testing data used. "Test" is used as validation set.
 dataset_train = PetDataset(csv_fullpath='./data/separated_train.csv', 
                            img_folder='./data/train', 
                            transform=TRANSFORMS_TRAIN, 
@@ -113,17 +110,16 @@ dataloader_val   = DataLoader(dataset = dataset_val,
 dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 
 # %% Setup Logging
-TB_name = get_writer_name(config)
-wandb.run.name = TB_name
-tensorboard = SummaryWriter(MODEL_WEIGHTS_SAVE_PATH + TB_name)
-model_weights_name_base = TB_name + '_Epoch_'
+case_name = get_writer_name(config)
+wandb.run.name = case_name
+model_weights_name_base = os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_')
 
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
                     mode = 'min',
                     factor = config['lr_reduction'],
-                    patience = config['patience'],
-                    min_lr = config['min_lr'],
+                    patience = config['lr_patience'],
+                    min_lr = config['lr_min'],
                     verbose = True)
 
 # %%
@@ -135,11 +131,11 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
         - Mean Squared Error (MSE) / Root Mean Squared Error (RMSE)
         - Mean Absolute Error (MAE) '''
 
-    for epoch in range(1, num_epochs+1):
-        start_time = time.time()
-        best_loss = float('inf')
-        best_loss_epoch = None
+    start_time = time.time()
+    best_loss = float('inf')
+    best_loss_epoch = None
 
+    for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
@@ -159,16 +155,16 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
                     pawpulartiy_pred = model(images) # Try with only one input for now
                     # pawpulartiy_pred = model(images, metadata)
-                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred) # See if this is necessary
+                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred)
 
                     loss = criterion(pawpulartiy_pred, pawpularities)
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
                     total_no_data += bs
 
                     if phase=='train':
+                        optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
-                        optimizer.zero_grad()
 
                     if print_samples and batch_index == 0:
                         print('='*90)
@@ -177,7 +173,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] Loss: {:.2f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
+                print('\t\t[Iter. {} of {}] Loss: {:.5f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
 
             if phase=='val' and lr_scheduler is not None:
                 lr_scheduler.step(metrics=loss)
@@ -188,9 +184,10 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
-                Path('./model_save').mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
+                Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
-                print('Saving Model to : {}'.format(model_weights_name))
+                print('\n\nSaving Model to : {}'.format(model_weights_name))
+                torch.save(model.state_dict(), model_weights_name)
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
