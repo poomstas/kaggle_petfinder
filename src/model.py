@@ -2,9 +2,15 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
 from pretrainedmodels import xception, densenet121, densenet201
 from torchvision.models import *
+
+# %%
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+    def forward(self, x):
+        return x
 
 # %%
 class XceptionImg(nn.Module):
