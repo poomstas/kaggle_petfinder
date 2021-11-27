@@ -30,25 +30,21 @@ if test_config['model'].upper() == 'XCEPTION':
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
-
 elif test_config['model'].upper() == 'XCEPTIONIMG':
     model = XceptionImg().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
-
 elif test_config['model'].upper() == 'DENSENET121':
     model = DenseNet121().to(DEVICE)
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
-
 else:
-    print('Specified model does not exist.')
-    sys.exit()
+    print('Specified model does not exist.'); sys.exit()
 
 # %%
-model.load_state_dict(torch.load(test_config['model_file_path']))
+model.load_state_dict(torch.load(test_config['model_file_path'], map_location=DEVICE))
 
 # %%
 TRANSFORMS_VALTEST = A.Compose([
@@ -81,10 +77,7 @@ pawpularities_pred_collect = np.squeeze(pawpularities_pred_collect)
 
 # %%
 def adjustFigAspect(fig,aspect=1):
-    '''
-    Adjust the subplot parameters so that the figure has the correct
-    aspect ratio.
-    '''
+    ''' Adjust the subplot parameters so that the figure has the correct aspect ratio.'''
     xsize,ysize = fig.get_size_inches()
     minsize = min(xsize,ysize)
     xlim = .4*minsize/xsize
