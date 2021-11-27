@@ -56,7 +56,7 @@ class Xception(nn.Module):
         out_img = F.relu(self.img_fc2(out_img)) # Outs 512
         out_img = F.relu(self.img_fc3(out_img)) # Outs 256
 
-        out = torch.cat((metadata, out_img), 0) # Outs 256 + 12 = 268
+        out = torch.cat((metadata, out_img), 1) # Outs 256 + 12 = 268
         out = F.relu(self.fc1(out))
         out = F.relu(self.fc2(out))
         out = self.fc3(out)
