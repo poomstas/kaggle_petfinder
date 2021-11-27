@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import albumentations as A
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, preprocess_data, get_writer_name, parse_arguments, get_dict_from_args
+from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
 from src.data import PetDataset
@@ -21,8 +21,9 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'xceptionimg',  # Backbone Model
-    'batch_size':     32,             # Batch Size
+    'model':          'xception',     # Backbone Model
+    'batch_size':     32,             # Batch Size  11GB VRAM -> 32
+    'loss_func':      'LogCosh',      # Loss function ['MSE', 'L1', 'Huber', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
@@ -72,9 +73,15 @@ else:
     sys.exit()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
-criterion = nn.MSELoss()
-# criterion = ignite.metrics.MeanAbsoluteError
-# criterion = nn.L1Loss() # output = loss(input, target)
+
+# %%
+loss_dict = { # TODO: add feature to calculate all loss functions listed here
+    'MSE': nn.MSELoss(), # Mean squared error
+    'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error
+    'LogCosh': LogCoshLoss(), 
+    # 'Huber': None, TODO: Add function
+}
+criterion = loss_dict[config['loss_func']]
 
 # %% Albumentation Augmentations
 TRANSFORMS_TRAIN = A.Compose([
@@ -138,16 +145,13 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 
 # %%
 def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
-                num_epochs, device, print_samples=True):
-
-    '''Loss functions to keep track of for Regression:
-        - R square, Adjusted R square
-        - Mean Squared Error (MSE) / Root Mean Squared Error (RMSE)
-        - Mean Absolute Error (MAE) '''
+                config, device, print_samples=True):
 
     start_time = time.time()
     best_loss = float('inf')
     best_loss_epoch = None
+    num_epochs = config['epochs']
+    loss_name = config['loss_func']
 
     for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
@@ -186,13 +190,17 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] Loss: {:.5f}'.format(batch_index, len(dataloaders[phase]), running_loss/total_no_data), end='\r')
+                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}'.format(
+                    batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data), 
+                    end='\r')
 
             if phase=='val' and lr_scheduler is not None:
                 lr_scheduler.step(metrics=loss)
             
             running_loss = running_loss / total_no_data
-            wandb.log({'MSELoss_{}'.format(phase): running_loss})
+            wandb.log({
+                'Loss_{}_{}'.format(loss_name, phase): running_loss,
+            })
 
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
@@ -212,4 +220,4 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 # %%
 if __name__=='__main__':
     train_model(model, dataloaders, criterion, optimizer, lr_scheduler, 
-                config['epochs'], DEVICE, print_samples=False)
+                config, DEVICE, print_samples=False)

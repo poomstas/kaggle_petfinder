@@ -1,4 +1,6 @@
 # %%
+import torch
+import math
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -83,6 +85,18 @@ def get_dict_from_args(args):
         config[item] = getattr(args, item)
 
     return config
+
+# %%
+def log_cosh_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _log_cosh(x: torch.Tensor) -> torch.Tensor:
+        return x + torch.nn.functional.softplus(-2. * x) - math.log(2.0)
+    return torch.mean(_log_cosh(y_pred - y_true))
+class LogCoshLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        return log_cosh_loss(y_pred, y_true)
 
 # %%
 ''' Functions below are used in validate.py '''
