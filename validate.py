@@ -14,11 +14,11 @@ from torch.utils.data import DataLoader
 # %%
 test_config = {
     'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'XCEPTIONIMG',  # Backbone Model
-    'batch_size':     16,             # Batch Size
+    'model':          'xception',     # Backbone Model
+    'batch_size':     1,              # Batch Size
     'num_workers':    1,              # Number of workers for DataLoader
-    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1     TODO Use this config in this script
-    'model_file_path': './model_save/PetFindr_xceptionimg_LR_0.001_BS_32_nEpoch_30_20211125_235402/Epoch_004.pth'
+    'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1
+    'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_64_nEpoch_30_20211127_210234/Epoch_002.pth'
 }
 
 # %%
@@ -96,10 +96,17 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.scatter(pawpularities_collect, pawpularities_pred_collect)
 ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.')
-ax.plot(np.linspace(0,100,100), np.linspace(0,100,100), 'r--')
+
+if test_config['scale_target']:
+    ax.plot(np.linspace(0,1,100), np.linspace(0,1,100), 'r--')
+else:
+    ax.plot(np.linspace(0,100,100), np.linspace(0,100,100), 'r--')
+
 adjustFigAspect(fig, aspect=1)
 plt.show()
 
 criterion = nn.MSELoss()
 loss_MSE = criterion(torch.tensor(pawpularities_pred_collect), torch.tensor(pawpularities_collect))
 print('MSE Loss: {:.3f}'.format(loss_MSE))
+
+# %%
