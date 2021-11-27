@@ -13,18 +13,23 @@ from torch.utils.data import DataLoader
 
 # %%
 test_config = {
-    'gpu_index':      0,              # GPU Index, default at 0
+    'gpu_index':      'cpu',          # GPU Index, default at 0. Input 'cpu' also possible.
     'model':          'xception',     # Backbone Model
     'batch_size':     1,              # Batch Size
     'num_workers':    1,              # Number of workers for DataLoader
-    'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1
-    'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_64_nEpoch_30_20211127_210234/Epoch_002.pth'
+    'scale_target':   True,          # Scale Pawpularity from 0-100 to 0-1
+    # 'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_64_nEpoch_30_20211127_210234/Epoch_002.pth'
+    'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_32_nEpoch_30_20211127_231055/Epoch_001.pth'
 }
 
 # %%
-DEVICE = torch.device('cuda:{}'.format(test_config['gpu_index']) if torch.cuda.is_available() else 'cpu')
+if test_config['gpu_index'] == 'cpu':
+    DEVICE = torch.device('cpu')
+else:
+    DEVICE = torch.device('cuda:{}'.format(test_config['gpu_index']) if torch.cuda.is_available() else 'cpu')
 print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, test_config['model']))
 
+# %%
 if test_config['model'].upper() == 'XCEPTION':
     model = Xception().to(DEVICE)
     TARGET_SIZE = 299
