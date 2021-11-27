@@ -8,6 +8,7 @@ import albumentations as A
 from tqdm import tqdm
 from src.model import Xception, DenseNet121, XceptionImg # Add more as I go here
 from src.data import PetDataset
+from src.utils import adjustFigAspect
 from albumentations.pytorch.transforms import ToTensorV2
 from torch.utils.data import DataLoader
 
@@ -73,28 +74,11 @@ dataloader_val  = DataLoader(dataset = dataset_val,
 pawpularities_collect, pawpularities_pred_collect = [], []
 
 for batch_index, (images, metadata, pawpularities) in tqdm(enumerate(dataloader_val), total=len(dataloader_val)):
-
     pawpularities_collect.extend(pawpularities.tolist())
     pred = model(images.to(DEVICE), metadata.to(DEVICE))
     pawpularities_pred_collect.extend(pred.detach().to('cpu').numpy().tolist())
 
 pawpularities_pred_collect = np.squeeze(pawpularities_pred_collect)
-
-# %%
-def adjustFigAspect(fig,aspect=1):
-    ''' Adjust the subplot parameters so that the figure has the correct aspect ratio.'''
-    xsize,ysize = fig.get_size_inches()
-    minsize = min(xsize,ysize)
-    xlim = .4*minsize/xsize
-    ylim = .4*minsize/ysize
-    if aspect < 1:
-        xlim *= aspect
-    else:
-        ylim /= aspect
-    fig.subplots_adjust(left=.5-xlim,
-                        right=.5+xlim,
-                        bottom=.5-ylim,
-                        top=.5+ylim)
 
 # %%
 fig = plt.figure()
