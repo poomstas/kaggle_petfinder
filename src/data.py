@@ -38,7 +38,7 @@ class PetDataset(Dataset):
         
         start_indx = self.metadata_col_index_start
         end_indx   = self.metadata_col_index_end
-        metadata   = self.df.loc[index].iloc[start_indx:end_indx].values.astype(np.int)
+        metadata   = self.df.loc[index].iloc[start_indx:end_indx+1].values.astype(np.int)
 
         if self.testset:
             return img, metadata

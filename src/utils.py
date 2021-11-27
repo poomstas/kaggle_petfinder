@@ -1,4 +1,6 @@
 # %%
+import torch
+import math
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -83,6 +85,38 @@ def get_dict_from_args(args):
         config[item] = getattr(args, item)
 
     return config
+
+# %%
+def log_cosh_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _log_cosh(x: torch.Tensor) -> torch.Tensor:
+        return x + torch.nn.functional.softplus(-2. * x) - math.log(2.0)
+    return torch.mean(_log_cosh(y_pred - y_true))
+class LogCoshLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        return log_cosh_loss(y_pred, y_true)
+
+# %%
+''' Functions below are used in validate.py '''
+# %%
+def adjustFigAspect(fig,aspect=1):
+    ''' Adjust the subplot parameters so that the figure has the correct aspect ratio.'''
+    xsize,ysize = fig.get_size_inches()
+    minsize = min(xsize,ysize)
+    xlim = .4*minsize/xsize
+    ylim = .4*minsize/ysize
+    if aspect < 1:
+        xlim *= aspect
+    else:
+        ylim /= aspect
+    fig.subplots_adjust(left=.5-xlim,
+                        right=.5+xlim,
+                        bottom=.5-ylim,
+                        top=.5+ylim)
+
+# %%
 
 # %%
 if __name__=='__main__':

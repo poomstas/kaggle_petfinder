@@ -8,47 +8,49 @@ import albumentations as A
 from tqdm import tqdm
 from src.model import Xception, DenseNet121, XceptionImg # Add more as I go here
 from src.data import PetDataset
+from src.utils import adjustFigAspect
 from albumentations.pytorch.transforms import ToTensorV2
 from torch.utils.data import DataLoader
 
 # %%
 test_config = {
-    'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'XCEPTIONIMG',  # Backbone Model
-    'batch_size':     16,             # Batch Size
+    'gpu_index':      'cpu',          # GPU Index, default at 0. Input 'cpu' also possible.
+    'model':          'xception',     # Backbone Model
+    'batch_size':     1,              # Batch Size
     'num_workers':    1,              # Number of workers for DataLoader
-    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1     TODO Use this config in this script
-    'model_file_path': './model_save/PetFindr_xceptionimg_LR_0.001_BS_32_nEpoch_30_20211125_235402/Epoch_004.pth'
+    'scale_target':   True,          # Scale Pawpularity from 0-100 to 0-1
+    # 'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_64_nEpoch_30_20211127_210234/Epoch_002.pth'
+    'model_file_path': './model_save/PetFindr_xception_LR_0.00100_BS_32_nEpoch_30_20211127_231055/Epoch_001.pth'
 }
 
 # %%
-DEVICE = torch.device('cuda:{}'.format(test_config['gpu_index']) if torch.cuda.is_available() else 'cpu')
+if test_config['gpu_index'] == 'cpu':
+    DEVICE = torch.device('cpu')
+else:
+    DEVICE = torch.device('cuda:{}'.format(test_config['gpu_index']) if torch.cuda.is_available() else 'cpu')
 print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, test_config['model']))
 
+# %%
 if test_config['model'].upper() == 'XCEPTION':
     model = Xception().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
-
 elif test_config['model'].upper() == 'XCEPTIONIMG':
     model = XceptionImg().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
-
 elif test_config['model'].upper() == 'DENSENET121':
     model = DenseNet121().to(DEVICE)
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
-
 else:
-    print('Specified model does not exist.')
-    sys.exit()
+    print('Specified model does not exist.'); sys.exit()
 
 # %%
-model.load_state_dict(torch.load(test_config['model_file_path']))
+model.load_state_dict(torch.load(test_config['model_file_path'], map_location=DEVICE))
 
 # %%
 TRANSFORMS_VALTEST = A.Compose([
@@ -72,18 +74,28 @@ dataloader_val  = DataLoader(dataset = dataset_val,
 pawpularities_collect, pawpularities_pred_collect = [], []
 
 for batch_index, (images, metadata, pawpularities) in tqdm(enumerate(dataloader_val), total=len(dataloader_val)):
-
     pawpularities_collect.extend(pawpularities.tolist())
-    pred = model(images.to(DEVICE))
+    pred = model(images.to(DEVICE), metadata.to(DEVICE))
     pawpularities_pred_collect.extend(pred.detach().to('cpu').numpy().tolist())
 
 pawpularities_pred_collect = np.squeeze(pawpularities_pred_collect)
 
 # %%
-plt.scatter(pawpularities_collect, pawpularities_pred_collect)
-plt.xlabel('Pawpularity'); plt.ylabel('Pawpularity Pred.')
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.scatter(pawpularities_collect, pawpularities_pred_collect)
+ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.')
+
+if test_config['scale_target']:
+    ax.plot(np.linspace(0,1,100), np.linspace(0,1,100), 'r--')
+else:
+    ax.plot(np.linspace(0,100,100), np.linspace(0,100,100), 'r--')
+
+adjustFigAspect(fig, aspect=1)
 plt.show()
 
 criterion = nn.MSELoss()
 loss_MSE = criterion(torch.tensor(pawpularities_pred_collect), torch.tensor(pawpularities_collect))
 print('MSE Loss: {:.3f}'.format(loss_MSE))
+
+# %%
