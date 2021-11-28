@@ -5,9 +5,11 @@ import wandb
 import time
 import torch
 import torch.nn as nn
+import numpy as np
 import albumentations as A
+import matplotlib.pyplot as plt
 from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss
+from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
 from src.data import PetDataset
@@ -39,7 +41,7 @@ config = {
     'note':           '',             # Note to leave on TensorBoard and W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or onilne
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
@@ -77,7 +79,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 # %%
 loss_dict = { # TODO: add feature to calculate all loss functions listed here
     # 'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
-    'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error
+    # 'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
     'LogCosh': LogCoshLoss(), 
     # 'Huber': None, TODO: Add function
 }
@@ -167,22 +169,25 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             running_loss_MSE = 0.0
             running_loss_MAE = 0.0
             total_no_data = 0
+            pawpularities_collect, pawpularities_pred_collect = [], [] # For plotting
 
             for batch_index, (images, metadata, pawpularities) in enumerate(dataloaders[phase]):
                 bs = images.shape[0]
                 images = images.to(device)
                 metadata = metadata.to(device)
                 pawpularities = pawpularities.to(device)
+                pawpularities_collect.extend(pawpularities.tolist())
 
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
-                    pawpulartiy_pred = model(images, metadata)
-                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred)
+                    pawpularities_pred = model(images, metadata)
+                    pawpularities_pred = torch.squeeze(pawpularities_pred)
+                    pawpularities_pred_collect.extend(pawpularities_pred.tolist())
 
-                    loss = criterion(pawpulartiy_pred, pawpularities)
+                    loss = criterion(pawpularities_pred, pawpularities)
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
-                    batch_MSE = loss_MSE(pawpulartiy_pred, pawpularities)
+                    batch_MSE = loss_MSE(pawpularities_pred, pawpularities)
                     running_loss_MSE += batch_MSE.item() * bs
-                    batch_MAE = loss_MAE(pawpulartiy_pred, pawpularities)
+                    batch_MAE = loss_MAE(pawpularities_pred, pawpularities)
                     running_loss_MAE += batch_MAE.item() * bs
                     total_no_data += bs
 
@@ -223,6 +228,14 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('\n\nSaving Model to : {}'.format(model_weights_name))
                 torch.save(model.state_dict(), model_weights_name)
+
+                fig = plt.figure(); adjustFigAspect(fig, aspect=1)
+                ax = fig.add_subplot(111)
+                ax.scatter(pawpularities_collect, pawpularities_pred_collect)
+                ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
+                ax_maxval = 1 if config['scale_target'] else 100
+                ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
+                plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}.png'.format(str(epoch).zfill(3))))
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
