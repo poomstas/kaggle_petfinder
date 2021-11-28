@@ -76,7 +76,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
 # %%
 loss_dict = { # TODO: add feature to calculate all loss functions listed here
-    'MSE': nn.MSELoss(), # Mean squared error
+    # 'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
     'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error
     'LogCosh': LogCoshLoss(), 
     # 'Huber': None, TODO: Add function
@@ -91,10 +91,10 @@ TRANSFORMS_TRAIN = A.Compose([
             A.RandomRotate90(p=0.5), 
             A.Rotate(p=0.5)],
         p=0.5),
-    A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
-    A.ChannelShuffle(p=0.3),
-    A.Normalize(NORMAL_MEAN, NORMAL_STD),
+    # A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
+    # A.ChannelShuffle(p=0.3),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+    A.Normalize(NORMAL_MEAN, NORMAL_STD),
     ToTensorV2()
 ])
 
@@ -152,6 +152,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
     best_loss_epoch = None
     num_epochs = config['epochs']
     loss_name = config['loss_func']
+    loss_MSE = nn.MSELoss()
+    loss_MAE = nn.L1Loss(reduction='mean')
 
     for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
@@ -162,6 +164,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             model.train() if phase=='train' else model.eval()
 
             running_loss = 0.0
+            running_loss_MSE = 0.0
+            running_loss_MAE = 0.0
             total_no_data = 0
 
             for batch_index, (images, metadata, pawpularities) in enumerate(dataloaders[phase]):
@@ -176,6 +180,10 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 
                     loss = criterion(pawpulartiy_pred, pawpularities)
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
+                    batch_MSE = loss_MSE(pawpulartiy_pred, pawpularities)
+                    running_loss_MSE += batch_MSE.item() * bs
+                    batch_MAE = loss_MAE(pawpulartiy_pred, pawpularities)
+                    running_loss_MAE += batch_MAE.item() * bs
                     total_no_data += bs
 
                     if phase=='train':
@@ -190,15 +198,21 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}'.format(
-                    batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data), 
+                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}\t MSE: {:.5f}\t MAE: {:.5f}'.format(
+                    batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data, 
+                    running_loss_MSE/total_no_data, running_loss_MAE/total_no_data),
                     end='\r')
 
             if phase=='val' and lr_scheduler is not None:
                 lr_scheduler.step(metrics=loss)
             
             running_loss = running_loss / total_no_data
+            default_MSE = running_loss_MSE / total_no_data
+            default_MAE = running_loss_MAE / total_no_data
+
             wandb.log({
+                'Loss_MSE_{}'.format(phase): default_MSE, # Calculated for every case
+                'Loss_MAE_{}'.format(phase): default_MAE, # Calculated for every case
                 'Loss_{}_{}'.format(loss_name, phase): running_loss,
             })
 
