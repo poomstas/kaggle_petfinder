@@ -41,7 +41,7 @@ config = {
     'note':           '',             # Note to leave on TensorBoard and W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or onilne
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
@@ -221,21 +221,21 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 'Loss_{}_{}'.format(loss_name, phase): running_loss,
             })
 
+            Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
-                Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('\n\nSaving Model to : {}'.format(model_weights_name))
                 torch.save(model.state_dict(), model_weights_name)
 
-                fig = plt.figure(); adjustFigAspect(fig, aspect=1)
-                ax = fig.add_subplot(111)
-                ax.scatter(pawpularities_collect, pawpularities_pred_collect)
-                ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
-                ax_maxval = 1 if config['scale_target'] else 100
-                ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
-                plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}.png'.format(str(epoch).zfill(3))))
+            fig = plt.figure(); adjustFigAspect(fig, aspect=1)
+            ax = fig.add_subplot(111)
+            ax.scatter(pawpularities_collect, pawpularities_pred_collect)
+            ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
+            ax_maxval = 1 if config['scale_target'] else 100
+            ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
+            plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}.png'.format(str(epoch).zfill(3))))
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
