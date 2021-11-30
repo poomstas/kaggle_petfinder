@@ -5,9 +5,11 @@ import wandb
 import time
 import torch
 import torch.nn as nn
+import numpy as np
 import albumentations as A
-from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
-from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss
+import matplotlib.pyplot as plt
+from src.model import Xception, XceptionImg, DenseNet121, ViT_CrossFormer # Add more here later
+from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
 from src.data import PetDataset
@@ -76,8 +78,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
 # %%
 loss_dict = { # TODO: add feature to calculate all loss functions listed here
-    'MSE': nn.MSELoss(), # Mean squared error
-    'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error
+    # 'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
+    # 'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
     'LogCosh': LogCoshLoss(), 
     # 'Huber': None, TODO: Add function
 }
@@ -91,10 +93,10 @@ TRANSFORMS_TRAIN = A.Compose([
             A.RandomRotate90(p=0.5), 
             A.Rotate(p=0.5)],
         p=0.5),
-    A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
-    A.ChannelShuffle(p=0.3),
-    A.Normalize(NORMAL_MEAN, NORMAL_STD),
+    # A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
+    # A.ChannelShuffle(p=0.3),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+    A.Normalize(NORMAL_MEAN, NORMAL_STD),
     ToTensorV2()
 ])
 
@@ -146,12 +148,13 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 # %%
 def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 config, device, print_samples=True):
-
     start_time = time.time()
     best_loss = float('inf')
     best_loss_epoch = None
     num_epochs = config['epochs']
     loss_name = config['loss_func']
+    loss_MSE = nn.MSELoss()
+    loss_MAE = nn.L1Loss(reduction='mean')
 
     for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
@@ -162,20 +165,29 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             model.train() if phase=='train' else model.eval()
 
             running_loss = 0.0
+            running_loss_MSE = 0.0
+            running_loss_MAE = 0.0
             total_no_data = 0
+            pawpularities_collect, pawpularities_pred_collect = [], [] # For plotting
 
             for batch_index, (images, metadata, pawpularities) in enumerate(dataloaders[phase]):
                 bs = images.shape[0]
                 images = images.to(device)
                 metadata = metadata.to(device)
                 pawpularities = pawpularities.to(device)
+                pawpularities_collect.extend(pawpularities.tolist())
 
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
-                    pawpulartiy_pred = model(images, metadata)
-                    pawpulartiy_pred = torch.squeeze(pawpulartiy_pred)
+                    pawpularities_pred = model(images, metadata)
+                    pawpularities_pred = torch.squeeze(pawpularities_pred)
+                    pawpularities_pred_collect.extend(pawpularities_pred.tolist())
 
-                    loss = criterion(pawpulartiy_pred, pawpularities)
+                    loss = criterion(pawpularities_pred, pawpularities)
                     running_loss += loss.item() * bs # Will divide later to get an accurate avg
+                    batch_MSE = loss_MSE(pawpularities_pred, pawpularities)
+                    running_loss_MSE += batch_MSE.item() * bs
+                    batch_MAE = loss_MAE(pawpularities_pred, pawpularities)
+                    running_loss_MAE += batch_MAE.item() * bs
                     total_no_data += bs
 
                     if phase=='train':
@@ -190,25 +202,39 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}'.format(
-                    batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data), 
+                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}\t MSE: {:.5f}\t MAE: {:.5f}'.format(
+                    batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data, 
+                    running_loss_MSE/total_no_data, running_loss_MAE/total_no_data),
                     end='\r')
 
-            if phase=='val' and lr_scheduler is not None:
-                lr_scheduler.step(metrics=loss)
-            
             running_loss = running_loss / total_no_data
+            default_MSE = running_loss_MSE / total_no_data
+            default_MAE = running_loss_MAE / total_no_data
+
+            if phase=='val' and lr_scheduler is not None:
+                lr_scheduler.step(metrics=running_loss)
+
             wandb.log({
+                'Loss_MSE_{}'.format(phase): default_MSE, # Calculated for every case
+                'Loss_MAE_{}'.format(phase): default_MAE, # Calculated for every case
                 'Loss_{}_{}'.format(loss_name, phase): running_loss,
             })
 
+            Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
-                Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
                 model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                 print('\n\nSaving Model to : {}'.format(model_weights_name))
                 torch.save(model.state_dict(), model_weights_name)
+
+            fig = plt.figure(); adjustFigAspect(fig, aspect=1)
+            ax = fig.add_subplot(111)
+            ax.scatter(pawpularities_collect, pawpularities_pred_collect)
+            ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
+            ax_maxval = 1 if config['scale_target'] else 100
+            ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
+            plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}.png'.format(str(epoch).zfill(3))))
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
