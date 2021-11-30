@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
+from src.model import Xception, XceptionImg, DenseNet121, ViT_CrossFormer # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -148,7 +148,6 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 # %%
 def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 config, device, print_samples=True):
-
     start_time = time.time()
     best_loss = float('inf')
     best_loss_epoch = None
@@ -208,12 +207,12 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                     running_loss_MSE/total_no_data, running_loss_MAE/total_no_data),
                     end='\r')
 
-            if phase=='val' and lr_scheduler is not None:
-                lr_scheduler.step(metrics=loss)
-            
             running_loss = running_loss / total_no_data
             default_MSE = running_loss_MSE / total_no_data
             default_MAE = running_loss_MAE / total_no_data
+
+            if phase=='val' and lr_scheduler is not None:
+                lr_scheduler.step(metrics=running_loss)
 
             wandb.log({
                 'Loss_MSE_{}'.format(phase): default_MSE, # Calculated for every case
