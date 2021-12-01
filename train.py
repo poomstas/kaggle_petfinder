@@ -8,12 +8,13 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import Xception, XceptionImg, DenseNet121, ViT_CrossFormer # Add more here later
+from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
 from src.data import PetDataset
 from torch.utils.data import DataLoader
+from torch_lr_finder import LRFinder
 
 # %%
 TRAIN_CSV_PATH = './data/train.csv'
@@ -24,16 +25,17 @@ MODEL_SAVE_PATH = './model_save/'
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'xception',     # Backbone Model
+    'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     32,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'LogCosh',      # Loss function ['MSE', 'L1', 'Huber', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
     'num_workers':    1,              # Number of workers for DataLoader
-    'lr':             0.001,          # Learning rate
+    'lr':             2.31E-03,       # Learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
-    'lr_patience':    5,              # Patience for learning rate plateau detection
-    'lr_reduction':   0.1,            # Learning rate reduction factor in case of plateau
+    'lr_patience':    2,              # Patience for learning rate plateau detection
+    'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
     'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
     'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
@@ -41,7 +43,7 @@ config = {
     'note':           '',             # Note to leave on TensorBoard and W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or onilne
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
@@ -145,6 +147,7 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     min_lr = config['lr_min'],
                     verbose = True)
 
+
 # %%
 def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 config, device, print_samples=True):
@@ -158,6 +161,14 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 
     for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
+            if epoch==1 and phase=='train' and config['find_optimal_lr']:
+                print('\n==================================[ LR Finder ]=================================='.format(epoch, num_epochs))
+                lr_finder_optim = torch.optim.Adam(model.parameters(), lr=1e-7, weight_decay=1e-2) # Should not have a lr scheduler attached
+                lr_finder = LRFinder(model, lr_finder_optim, criterion, device=device)
+                lr_finder.range_test(dataloader_train, end_lr=100, num_iter=100)
+                lr_finder.plot()
+                lr_finder.reset()
+                sys.exit()
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
             print('\t[{}]'.format(phase.upper()))
@@ -170,7 +181,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             total_no_data = 0
             pawpularities_collect, pawpularities_pred_collect = [], [] # For plotting
 
-            for batch_index, (images, metadata, pawpularities) in enumerate(dataloaders[phase]):
+            for batch_index, ((images, metadata), pawpularities) in enumerate(dataloaders[phase]):
                 bs = images.shape[0]
                 images = images.to(device)
                 metadata = metadata.to(device)
@@ -178,7 +189,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 pawpularities_collect.extend(pawpularities.tolist())
 
                 with torch.set_grad_enabled(phase=='train'): # Enable grad only in train
-                    pawpularities_pred = model(images, metadata)
+                    pawpularities_pred = model((images, metadata))
                     pawpularities_pred = torch.squeeze(pawpularities_pred)
                     pawpularities_pred_collect.extend(pawpularities_pred.tolist())
 
