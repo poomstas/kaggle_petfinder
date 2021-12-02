@@ -35,8 +35,8 @@ n_epoch = 30000
 class LinModel(nn.Module):
     def __init__(self, n_hidden=5):
         super(LinModel, self).__init__()
-        self.fc1 = nn.Linear(12, n_hidden) # Takes the concatenated vector (img features + metadata)
-        self.fc2 = nn.Linear(n_hidden, 1) # Takes the concatenated vector (img features + metadata)
+        self.fc1 = nn.Linear(12, n_hidden)
+        self.fc2 = nn.Linear(n_hidden, 1)
 
     def forward(self, x):
         out = self.fc1(x)
