@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import Xception, XceptionImg, DenseNet121 # Add more here later
+from src.model import Xception, XceptionImg # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -24,7 +24,7 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'xception',     # Backbone Model
+    'model':          'xceptionimg',  # Backbone Model
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     32,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'LogCosh',      # Loss function ['MSE', 'L1', 'Huber', 'LogCosh']
@@ -32,15 +32,15 @@ config = {
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
     'num_workers':    1,              # Number of workers for DataLoader
-    'lr':             2.31E-03,       # Learning rate (optimized using LRFinder)
+    'lr':             6.85E-03,       # Learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    2,              # Patience for learning rate plateau detection
     'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
     'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
-    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
+    'scale_target':   True,          # Scale Pawpularity from 0-100 to 0-1
     'epochs':         30,             # Total number of epochs to train over
-    'note':           '',             # Note to leave on TensorBoard and W&B
+    'note':           'Reduced fc, no aug, img only', # Note to leave on TensorBoard and W&B
 }
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
@@ -66,12 +66,6 @@ elif config['model'].upper() == 'XCEPTIONIMG':
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
-elif config['model'].upper() == 'DENSENET121':
-    model = DenseNet121().to(DEVICE)
-    TARGET_SIZE = 224
-    NORMAL_MEAN = [0.485, 0.456, 0.406]
-    NORMAL_STD = [0.229, 0.224, 0.225]
-
 else:
     print('Specified model does not exist.')
     sys.exit()
@@ -79,7 +73,7 @@ else:
 optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
 # %%
-loss_dict = { # TODO: add feature to calculate all loss functions listed here
+loss_dict = {
     # 'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
     # 'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
     'LogCosh': LogCoshLoss(), 
@@ -89,12 +83,12 @@ criterion = loss_dict[config['loss_func']]
 
 # %% Albumentation Augmentations
 TRANSFORMS_TRAIN = A.Compose([
-    A.HorizontalFlip(p=0.5),
-    A.VerticalFlip(p=0.5),
-    A.OneOf([
-            A.RandomRotate90(p=0.5), 
-            A.Rotate(p=0.5)],
-        p=0.5),
+    # A.HorizontalFlip(p=0.5),
+    # A.VerticalFlip(p=0.5),
+    # A.OneOf([
+    #         A.RandomRotate90(p=0.5), 
+    #         A.Rotate(p=0.5)],
+    #     p=0.5),
     # A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
     # A.ChannelShuffle(p=0.3),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)

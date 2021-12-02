@@ -41,10 +41,10 @@ class PetDataset(Dataset):
         metadata   = self.df.loc[index].iloc[start_indx:end_indx+1].values.astype(np.int)
 
         if self.testset:
-            return img, metadata
+            return (img, metadata)
         else:
             pawpularity = self.df.loc[index]['Pawpularity'].astype(np.float32) # -> np.float32
-            return img, metadata, pawpularity
+            return (img, metadata), pawpularity
 
 # %%
 if __name__=='__main__':
