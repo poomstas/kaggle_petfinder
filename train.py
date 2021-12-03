@@ -25,13 +25,14 @@ MODEL_SAVE_PATH = './model_save/'
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'xceptionimg',  # Backbone Model
+    'activation_func':'tanh',         # Model activation function
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     32,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'LogCosh',      # Loss function ['MSE', 'L1', 'Huber', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
-    'num_workers':    1,              # Number of workers for DataLoader
+    'num_workers':    4,              # Number of workers for DataLoader
     'lr':             6.85E-03,       # Learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    2,              # Patience for learning rate plateau detection
@@ -55,13 +56,13 @@ print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
 print_config(config)
 
 if config['model'].upper() == 'XCEPTION':
-    model = Xception().to(DEVICE)
+    model = Xception(activation=config['activation_func']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
 elif config['model'].upper() == 'XCEPTIONIMG':
-    model = XceptionImg().to(DEVICE)
+    model = XceptionImg(activation=config['activation_func']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
@@ -74,8 +75,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
 # %%
 loss_dict = {
-    # 'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
-    # 'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
+    'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
+    'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
     'LogCosh': LogCoshLoss(), 
     # 'Huber': None, TODO: Add function
 }
