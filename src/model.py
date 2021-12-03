@@ -14,10 +14,14 @@ class Identity(nn.Module):
 
 # %%
 class XceptionImg(nn.Module):
-    def __init__(self, pretrained=True, activation='relu', n_hidden_nodes=10):
+    def __init__(self, pretrained=True, activation='relu', n_hidden_nodes=10, fix_backbone=False):
         super(XceptionImg, self).__init__()
-        self.model = xception(num_classes=1000, pretrained='imagenet' if pretrained else False)
-        self.model.last_linear = Identity() # Outputs 2048
+        self.backbone_model = xception(num_classes=1000, pretrained='imagenet' if pretrained else False)
+        self.backbone_model.last_linear = Identity() # Outputs 2048
+
+        if fix_backbone:
+            for param in self.backbone_model.parameters():
+                param.requires_grad = False
 
         self.img_fc1 = nn.Linear(2048, n_hidden_nodes) # The image branch starts here
         self.fc1 = nn.Linear(n_hidden_nodes, 1) # Takes the concatenated vector (img features + metadata)
@@ -34,7 +38,7 @@ class XceptionImg(nn.Module):
     def forward(self, input_tuple):
         img, _ = input_tuple
 
-        out = self.activation(self.model(img))
+        out = self.activation(self.backbone_model(img))
         out = self.activation(self.img_fc1(out))
         out = self.fc1(out)
 
