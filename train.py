@@ -24,11 +24,12 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'xceptionimg',  # Backbone Model
-    'activation_func':'tanh',         # Model activation function
+    'model':          'XceptionImg',  # Backbone Model
+    'activation_func':'relu',         # Model activation function ['relu', 'tanh']
+    'n_hidden_nodes': 5,              # Number of hidden node layers on the img side
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     32,             # Batch Size  11GB VRAM -> 32
-    'loss_func':      'LogCosh',      # Loss function ['MSE', 'L1', 'Huber', 'LogCosh']
+    'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh', 'Huber']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
@@ -39,9 +40,9 @@ config = {
     'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
     'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
-    'scale_target':   True,          # Scale Pawpularity from 0-100 to 0-1
+    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
     'epochs':         30,             # Total number of epochs to train over
-    'note':           'Reduced fc, no aug, img only', # Note to leave on TensorBoard and W&B
+    'note':           'Reduced fc, no aug, img only, relu, hidden5', # Note to leave on TensorBoard and W&B
 }
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
@@ -56,13 +57,15 @@ print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
 print_config(config)
 
 if config['model'].upper() == 'XCEPTION':
-    model = Xception(activation=config['activation_func']).to(DEVICE)
+    model = Xception(activation=config['activation_func'], 
+                     n_hidden_nodes=config['n_hidden_nodes']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
 elif config['model'].upper() == 'XCEPTIONIMG':
-    model = XceptionImg(activation=config['activation_func']).to(DEVICE)
+    model = XceptionImg(activation=config['activation_func'],
+                        n_hidden_nodes=config['n_hidden_nodes']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
