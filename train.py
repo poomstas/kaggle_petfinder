@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import Xception, XceptionImg # Add more here later
+from src.model import XceptionImg # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -25,7 +25,7 @@ MODEL_SAVE_PATH = './model_save/'
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'XceptionImg',  # Backbone Model
-    'activation_func':'relu',         # Model activation function ['relu', 'tanh']
+    'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
     'n_hidden_nodes': 5,              # Number of hidden node layers on the img side
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     32,             # Batch Size  11GB VRAM -> 32

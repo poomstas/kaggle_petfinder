@@ -25,6 +25,8 @@ class XceptionImg(nn.Module):
         activation_functions = {
             'tanh': torch.tanh,
             'relu': F.relu,
+            'leakyrelu': nn.LeakyReLU(negative_slope=0.01, inplace=False), # arg set at default
+            'elu': nn.ELU(alpha=0.1, inplace=False), # arg set at default
         }
         self.activation = activation_functions[activation]
 
