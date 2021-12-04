@@ -26,9 +26,10 @@ config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'efficientnet', # Backbone Model
     'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
-    'unfreeze_at':    4,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if fix_backbone == False
+    'unfreeze_at':    5,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
+    'dropout':        0,              # Dropout in the fc layers (no dropout if 0)
     'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
-    'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
+    'n_hidden_nodes': 20,             # Number of hidden node layers on the img side
     'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     16,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh']
@@ -44,7 +45,8 @@ config = {
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
     'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
     'epochs':         30,             # Total number of epochs to train over
-    'note':           'Reduced fc, no aug, img only, elu, hidden10, BackboneTrainOn', # Note to leave on TensorBoard and W&B
+    'save_model':     False,          # Save model on validation metric improvement
+    'note':           'elu, hidden20, UnfreezeAt5, RardomResizedCrop, nodropout', # Note to leave on W&B
 }
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
@@ -61,7 +63,8 @@ print_config(config)
 if config['model'].upper() == 'XCEPTIONIMG':
     model = ImgModel(activation=config['activation_func'],
                      n_hidden_nodes=config['n_hidden_nodes'],
-                     freeze_backbone=config['freeze_backbone']).to(DEVICE)
+                     freeze_backbone=config['freeze_backbone'],
+                     dropout=config['dropout']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
@@ -70,7 +73,8 @@ elif config['model'].upper() == 'EFFICIENTNET':
     model = ImgModel(backbone='efficientnet',
                      activation=config['activation_func'],
                      n_hidden_nodes=config['n_hidden_nodes'],
-                     freeze_backbone=config['freeze_backbone']).to(DEVICE)
+                     freeze_backbone=config['freeze_backbone'],
+                     dropout=config['dropout']).to(DEVICE)
     TARGET_SIZE = 512
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
@@ -91,13 +95,14 @@ criterion = loss_dict[config['loss_func']]
 
 # %% Albumentation Augmentations
 TRANSFORMS_TRAIN = A.Compose([
-    # A.HorizontalFlip(p=0.5),
-    # A.VerticalFlip(p=0.5),
+    A.HorizontalFlip(p=0.5),
+    A.VerticalFlip(p=0.5),
+    A.RandomResizedCrop(TARGET_SIZE, TARGET_SIZE, scale=(0.85, 1.0)),
     # A.OneOf([
     #         A.RandomRotate90(p=0.5), 
     #         A.Rotate(p=0.5)],
     #     p=0.5),
-    # A.ColorJitter (brightness=0.2, contrast=0.2, p=0.3),
+    A.ColorJitter (brightness=0.1, contrast=0.1, saturation=0.1),
     # A.ChannelShuffle(p=0.3),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
     A.Normalize(NORMAL_MEAN, NORMAL_STD),
@@ -166,7 +171,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 print('\n==================================[ LR Finder ]=================================='.format(epoch, num_epochs))
                 lr_finder_optim = torch.optim.Adam(model.parameters(), lr=1e-7, weight_decay=1e-2) # Should not have a lr scheduler attached
                 lr_finder = LRFinder(model, lr_finder_optim, criterion, device=device)
-                lr_finder.range_test(dataloader_train, end_lr=100, num_iter=100)
+                lr_finder.range_test(dataloader_train, end_lr=1, num_iter=100)
                 optimal_lr = get_lr_suggestion(lr_finder)
                 optimizer.param_groups[0]['lr'] = optimal_lr
                 print("Updated the config's lr value to: {}".format(optimal_lr))
@@ -243,9 +248,10 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             if phase == 'val' and running_loss < best_loss:
                 best_loss = running_loss
                 best_loss_epoch = epoch
-                model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
-                print('\n\nSaving Model to : {}'.format(model_weights_name))
-                torch.save(model.state_dict(), model_weights_name)
+                if config['save_model']:
+                    model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
+                    print('\n\nSaving Model to : {}'.format(model_weights_name))
+                    torch.save(model.state_dict(), model_weights_name)
 
             fig = plt.figure(); adjustFigAspect(fig, aspect=1)
             ax = fig.add_subplot(111)

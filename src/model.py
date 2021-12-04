@@ -9,8 +9,11 @@ from torchvision.models import *
 # %%
 class ImgModel(nn.Module):
     ''' This class of models takes in only the image as input (no metadata taken as input) '''
-    def __init__(self, backbone='xception', pretrained=True, activation='relu', n_hidden_nodes=10, freeze_backbone=False):
+    def __init__(self, backbone='xception', pretrained=True, activation='relu', n_hidden_nodes=10, 
+                 freeze_backbone=False, dropout=None):
         super(ImgModel, self).__init__()
+        self.dropout = dropout
+
         if backbone=='xception':
             self.backbone_model = xception(num_classes=1000, pretrained='imagenet' if pretrained else False)
             self.backbone_model.last_linear = nn.Identity() # Outputs 2048
@@ -26,6 +29,9 @@ class ImgModel(nn.Module):
 
         self.img_fc1 = nn.Linear(n_backbone_out, n_hidden_nodes)
         self.fc1 = nn.Linear(n_hidden_nodes, 1)
+
+        if dropout:
+            self.dropout_layer = nn.Dropout(dropout)
         
         activation_functions = {
             'tanh': torch.tanh,
@@ -40,7 +46,9 @@ class ImgModel(nn.Module):
         img, _ = input_tuple
 
         out = self.activation(self.backbone_model(img))
+        out = self.dropout_layer(out) if self.dropout else out
         out = self.activation(self.img_fc1(out))
+        out = self.dropout_layer(out) if self.dropout else out
         out = self.fc1(out)
 
         return out*100
