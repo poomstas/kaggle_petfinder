@@ -25,17 +25,17 @@ MODEL_SAVE_PATH = './model_save/'
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'efficientnet', # Backbone Model
-    'fix_backbone':   True,           # Fix backbone model weights (train only fc layers)
+    'freeze_backbone':False,       # Freeze backbone model weights (train only fc layers)
     'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
     'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
-    'batch_size':     64,             # Batch Size  11GB VRAM -> 32
+    'batch_size':     16,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
     'num_workers':    4,              # Number of workers for DataLoader
-    'lr':             5.34E-04,       # Learning rate (optimized using LRFinder)
+    'lr':             2.31E-04,       # Learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    2,              # Patience for learning rate plateau detection
     'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
@@ -43,7 +43,7 @@ config = {
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
     'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
     'epochs':         30,             # Total number of epochs to train over
-    'note':           'Reduced fc, no aug, img only, elu, hidden10', # Note to leave on TensorBoard and W&B
+    'note':           'Reduced fc, no aug, img only, elu, hidden10, BackboneTrainOn', # Note to leave on TensorBoard and W&B
 }
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or online
@@ -60,7 +60,7 @@ print_config(config)
 if config['model'].upper() == 'XCEPTIONIMG':
     model = ImgModel(activation=config['activation_func'],
                      n_hidden_nodes=config['n_hidden_nodes'],
-                     fix_backbone=config['fix_backbone']).to(DEVICE)
+                     freeze_backbone=config['freeze_backbone']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
@@ -69,7 +69,7 @@ elif config['model'].upper() == 'EFFICIENTNET':
     model = ImgModel(backbone='efficientnet',
                      activation=config['activation_func'],
                      n_hidden_nodes=config['n_hidden_nodes'],
-                     fix_backbone=config['fix_backbone']).to(DEVICE)
+                     freeze_backbone=config['freeze_backbone']).to(DEVICE)
     TARGET_SIZE = 512
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
