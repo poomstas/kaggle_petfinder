@@ -9,7 +9,7 @@ from torchvision.models import *
 # %%
 class ImgModel(nn.Module):
     ''' This class of models takes in only the image as input (no metadata taken as input) '''
-    def __init__(self, backbone='xception', pretrained=True, activation='relu', n_hidden_nodes=10, fix_backbone=False):
+    def __init__(self, backbone='xception', pretrained=True, activation='relu', n_hidden_nodes=10, freeze_backbone=False):
         super(ImgModel, self).__init__()
         if backbone=='xception':
             self.backbone_model = xception(num_classes=1000, pretrained='imagenet' if pretrained else False)
@@ -20,7 +20,7 @@ class ImgModel(nn.Module):
             self.backbone_model.classifier = nn.Identity() # Outputs 1280
             n_backbone_out = 1280
 
-        if fix_backbone:
+        if freeze_backbone:
             for param in self.backbone_model.parameters():
                 param.requires_grad = False
 
