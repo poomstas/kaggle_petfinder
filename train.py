@@ -42,7 +42,7 @@ config = {
         'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
     },
     'learning_rate': {
-        'lr':             2.31E-04,       # Initial learning rate (optimized using LRFinder)
+        'lr':             2.31E-04,       # Initial learning rate
         'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
         'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
         'lr_patience':    2,              # Patience for learning rate plateau detection
@@ -55,7 +55,7 @@ config = {
     'note':           'elu, hidden20, UnfreezeAt5, RardomResizedCrop, nodropout', # Note to leave on W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or online
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
