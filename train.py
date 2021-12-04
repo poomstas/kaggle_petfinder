@@ -9,7 +9,7 @@ import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
 from src.model import ImgModel
-from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
+from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect, get_lr_suggestion
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
 from src.data import PetDataset
@@ -25,17 +25,18 @@ MODEL_SAVE_PATH = './model_save/'
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
     'model':          'efficientnet', # Backbone Model
-    'freeze_backbone':False,       # Freeze backbone model weights (train only fc layers)
+    'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
+    'unfreeze_at':    4,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if fix_backbone == False
     'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
     'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
-    'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
+    'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
     'batch_size':     16,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
     'num_workers':    4,              # Number of workers for DataLoader
-    'lr':             2.31E-04,       # Learning rate (optimized using LRFinder)
+    'lr':             2.31E-04,       # Initial learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    2,              # Patience for learning rate plateau detection
     'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
@@ -148,7 +149,6 @@ lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     min_lr = config['lr_min'],
                     verbose = True)
 
-
 # %%
 def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 config, device, print_samples=True):
@@ -167,11 +167,17 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 lr_finder_optim = torch.optim.Adam(model.parameters(), lr=1e-7, weight_decay=1e-2) # Should not have a lr scheduler attached
                 lr_finder = LRFinder(model, lr_finder_optim, criterion, device=device)
                 lr_finder.range_test(dataloader_train, end_lr=100, num_iter=100)
-                lr_finder.plot()
+                optimal_lr = get_lr_suggestion(lr_finder)
+                optimizer.param_groups[0]['lr'] = optimal_lr
+                print("Updated the config's lr value to: {}".format(optimal_lr))
                 lr_finder.reset()
-                sys.exit()
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
+            if config['freeze_backbone'] and epoch == config['unfreeze_at'] and phase=='train':
+                print('\nUnfreezing backbone model parameters...\n')
+                for param in model.backbone_model.parameters():
+                    param.requires_grad = True
+
             print('\t[{}]'.format(phase.upper()))
 
             model.train() if phase=='train' else model.eval()
@@ -230,6 +236,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 'Loss_MSE_{}'.format(phase): default_MSE, # Calculated for every case
                 'Loss_MAE_{}'.format(phase): default_MAE, # Calculated for every case
                 'Loss_{}_{}'.format(loss_name, phase): running_loss,
+                'lr': optimizer.param_groups[0]['lr'],
             })
 
             Path(os.path.join(MODEL_SAVE_PATH, case_name)).mkdir(parents=True, exist_ok=True) # Create dir if nonexistent
@@ -243,7 +250,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             fig = plt.figure(); adjustFigAspect(fig, aspect=1)
             ax = fig.add_subplot(111)
             ax.scatter(pawpularities_collect, pawpularities_pred_collect)
-            ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
+            ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {} {}'.format(epoch, phase))
             ax_maxval = 1 if config['scale_target'] else 100
             ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
             plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}_{}.png'.format(str(epoch).zfill(3), phase)))

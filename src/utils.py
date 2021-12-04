@@ -2,10 +2,24 @@
 import torch
 import math
 import argparse
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 
+# %%
+def get_lr_suggestion(lr_finder_obj):
+    ''' To be used on lr_finder object created with pytorch-lr-finder. Retrieves the suggested lr value from obj.'''
+    skip_start, skip_end = 10, 5 # Use default values
+    lrs = lr_finder_obj.history["lr"]
+    losses = lr_finder_obj.history["loss"]
+    lrs = lrs[skip_start:-skip_end]
+    losses = losses[skip_start:-skip_end]
+    min_grad_idx = (np.gradient(np.array(losses))).argmin()
+    suggested_lr = lrs[min_grad_idx]
+    print('Suggested LR: {}'.format(suggested_lr))
+
+    return suggested_lr
 # %%
 def print_config(config_dict):
     print('='*80)
