@@ -43,7 +43,7 @@ class ImgModel(nn.Module):
         out = self.activation(self.img_fc1(out))
         out = self.fc1(out)
 
-        return out
+        return out*100
 
 # %%
 # class Xception(nn.Module):

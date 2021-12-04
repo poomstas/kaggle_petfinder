@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import ImgModel # Add more here later
+from src.model import ImgModel
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -35,18 +35,18 @@ config = {
     'train_shuffle':  True,           # Shuffle training data
     'val_shuffle':    False,          # Shuffle validation data
     'num_workers':    4,              # Number of workers for DataLoader
-    'lr':             6.85E-03,       # Learning rate (optimized using LRFinder)
+    'lr':             5.34E-04,       # Learning rate (optimized using LRFinder)
     'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
     'lr_patience':    2,              # Patience for learning rate plateau detection
     'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
     'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
     'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
-    'scale_target':   True,           # Scale Pawpularity from 0-100 to 0-1
+    'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
     'epochs':         30,             # Total number of epochs to train over
-    'note':           'Reduced fc, no aug, img only, relu, hidden5', # Note to leave on TensorBoard and W&B
+    'note':           'Reduced fc, no aug, img only, elu, hidden10', # Note to leave on TensorBoard and W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or online
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
