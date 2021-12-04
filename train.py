@@ -43,10 +43,11 @@ config = {
     },
     'learning_rate': {
         'lr':             2.31E-04,       # Initial learning rate
-        'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
+        'find_optimal_lr':True,           # Automatically find and apply the optimal learning rate at the beginning
+        'new_lr_at_unfr': True,           # Automatically find and apply new learning rate when unfreezing backbone
         'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
         'lr_patience':    2,              # Patience for learning rate plateau detection
-        'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
+        'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau detection
     },
     'gpu_index':      0,                  # GPU Index, default at 0
     'loss_func':      'MSE',              # Loss function ['MSE', 'MAE', 'LogCosh']
@@ -191,6 +192,15 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 print('\nUnfreezing backbone model parameters...\n')
                 for param in model.backbone_model.parameters():
                     param.requires_grad = True
+                if config['learning_rate']['new_lr_at_unfr']:
+                    print('Finding a new learning rate...')
+                    lr_finder_optim = torch.optim.Adam(model.parameters(), lr=1e-7, weight_decay=1e-2) # Should not have a lr scheduler attached
+                    lr_finder = LRFinder(model, lr_finder_optim, criterion, device=device)
+                    lr_finder.range_test(dataloader_train, end_lr=1, num_iter=100)
+                    optimal_lr = get_lr_suggestion(lr_finder)
+                    optimizer.param_groups[0]['lr'] = optimal_lr
+                    print("Updated the config's lr value to: {}".format(optimal_lr))
+                    lr_finder.reset()
 
             print('\t[{}]'.format(phase.upper()))
 
