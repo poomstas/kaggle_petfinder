@@ -46,7 +46,7 @@ config = {
     'note':           'Reduced fc, no aug, img only, elu, hidden10, BackboneTrainOn', # Note to leave on TensorBoard and W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or online
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
@@ -246,7 +246,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {}'.format(epoch))
             ax_maxval = 1 if config['scale_target'] else 100
             ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
-            plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}.png'.format(str(epoch).zfill(3))))
+            plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}_{}.png'.format(str(epoch).zfill(3), phase)))
+            plt.close()
 
             print('\n\t\tTotal Training Time So Far: {:.2f} mins'.format((time.time()-start_time)/60))
     
