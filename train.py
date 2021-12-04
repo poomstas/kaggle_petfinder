@@ -24,19 +24,19 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'model': {
-        'backbone':       'efficientnet', # Backbone Model
+        'backbone':       'swin',         # Backbone Model
         'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
-        'unfreeze_at':    5,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
-        'dropout':        0,              # Dropout in the fc layers (no dropout if 0)
+        'unfreeze_at':    3,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
+        'dropout':        0,              # Dropout fraction in the fc layers (no dropout if 0)
         'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
         'n_hidden_nodes': 20,             # Number of hidden node layers on the img side
     },
     'dataloader': {
-        'batch_size':     16,             # Batch Size  11GB VRAM -> 32
+        'batch_size':     64,             # Batch Size  11GB VRAM -> 32
         'drop_last':      False,          # Drop last mismatched batch
         'train_shuffle':  True,           # Shuffle training data
         'val_shuffle':    False,          # Shuffle validation data
-        'num_workers':    4,              # Number of workers for DataLoader
+        'num_workers':    6,              # Number of workers for DataLoader
         'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
         'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
         'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
@@ -86,8 +86,18 @@ elif config['model']['backbone'].upper() == 'EFFICIENTNET':
                      freeze_backbone=config['model']['freeze_backbone'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 512
-    NORMAL_MEAN = [0.485, 0.456, 0.406]
-    NORMAL_STD = [0.229, 0.224, 0.225]
+    NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
+    NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
+
+elif config['model']['backbone'].upper() == 'SWIN':
+    model = ImgModel(backbone='swin',
+                     activation=config['model']['activation_func'],
+                     n_hidden_nodes=config['model']['n_hidden_nodes'],
+                     freeze_backbone=config['model']['freeze_backbone'],
+                     dropout=config['model']['dropout']).to(DEVICE)
+    TARGET_SIZE = 224
+    NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
+    NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
 
 else:
     print('Specified model does not exist.')
@@ -186,6 +196,15 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 optimizer.param_groups[0]['lr'] = optimal_lr
                 print("Updated the config's lr value to: {}".format(optimal_lr))
                 lr_finder.reset()
+
+                # Not sure if below is needed, but just in case.
+                lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                    optimizer = optimizer,
+                                    mode = 'min',
+                                    factor = config['learning_rate']['lr_reduction'],
+                                    patience = config['learning_rate']['lr_patience'],
+                                    min_lr = config['learning_rate']['lr_min'],
+                                    verbose = False)
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
             if config['model']['freeze_backbone'] and epoch == config['model']['unfreeze_at'] and phase=='train':
@@ -244,7 +263,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] {} Loss: {:.5f}\t MSE: {:.5f}\t MAE: {:.5f}'.format(
+                print('\t\t[Iter. {} of {}] {} Loss: {:.4f}\t MSE: {:.4f}\t MAE: {:.4f}'.format(
                     batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data, 
                     running_loss_MSE/total_no_data, running_loss_MAE/total_no_data),
                     end='\r')
@@ -271,6 +290,8 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                     model_weights_name = model_weights_name_base + '{}.pth'.format(str(epoch).zfill(3))
                     print('\n\nSaving Model to : {}'.format(model_weights_name))
                     torch.save(model.state_dict(), model_weights_name)
+                else:
+                    print('\n\nBest Loss Observed: {:.4f}'.format(best_loss))
 
             fig = plt.figure(); adjustFigAspect(fig, aspect=1)
             ax = fig.add_subplot(111)
