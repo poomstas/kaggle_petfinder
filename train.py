@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import XceptionImg # Add more here later
+from src.model import ImgModel # Add more here later
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -24,12 +24,12 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'XceptionImg',  # Backbone Model
+    'model':          'efficientnet', # Backbone Model
     'fix_backbone':   True,           # Fix backbone model weights (train only fc layers)
     'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
-    'n_hidden_nodes': 10,              # Number of hidden node layers on the img side
+    'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
     'find_optimal_lr':False,          # Find and plot the optimal learning rate plot (and quit training)
-    'batch_size':     32,             # Batch Size  11GB VRAM -> 32
+    'batch_size':     64,             # Batch Size  11GB VRAM -> 32
     'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh']
     'drop_last':      False,          # Drop last mismatched batch
     'train_shuffle':  True,           # Shuffle training data
@@ -57,21 +57,22 @@ DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_ava
 print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
 print_config(config)
 
-if config['model'].upper() == 'XCEPTION':
-    model = Xception(activation=config['activation_func'], 
+if config['model'].upper() == 'XCEPTIONIMG':
+    model = ImgModel(activation=config['activation_func'],
                      n_hidden_nodes=config['n_hidden_nodes'],
                      fix_backbone=config['fix_backbone']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
-elif config['model'].upper() == 'XCEPTIONIMG':
-    model = XceptionImg(activation=config['activation_func'],
-                        n_hidden_nodes=config['n_hidden_nodes'],
-                        fix_backbone=config['fix_backbone']).to(DEVICE)
-    TARGET_SIZE = 299
-    NORMAL_MEAN = [0.5, 0.5, 0.5]
-    NORMAL_STD = [0.5, 0.5, 0.5]
+elif config['model'].upper() == 'EFFICIENTNET':
+    model = ImgModel(backbone='efficientnet',
+                     activation=config['activation_func'],
+                     n_hidden_nodes=config['n_hidden_nodes'],
+                     fix_backbone=config['fix_backbone']).to(DEVICE)
+    TARGET_SIZE = 512
+    NORMAL_MEAN = [0.485, 0.456, 0.406]
+    NORMAL_STD = [0.229, 0.224, 0.225]
 
 else:
     print('Specified model does not exist.')
