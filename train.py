@@ -23,58 +23,67 @@ MODEL_SAVE_PATH = './model_save/'
 
 # %% Hyperparameter configuration
 config = {
-    'gpu_index':      0,              # GPU Index, default at 0
-    'model':          'efficientnet', # Backbone Model
-    'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
-    'unfreeze_at':    5,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
-    'dropout':        0,              # Dropout in the fc layers (no dropout if 0)
-    'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
-    'n_hidden_nodes': 20,             # Number of hidden node layers on the img side
-    'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
-    'batch_size':     16,             # Batch Size  11GB VRAM -> 32
-    'loss_func':      'MSE',          # Loss function ['MSE', 'MAE', 'LogCosh']
-    'drop_last':      False,          # Drop last mismatched batch
-    'train_shuffle':  True,           # Shuffle training data
-    'val_shuffle':    False,          # Shuffle validation data
-    'num_workers':    4,              # Number of workers for DataLoader
-    'lr':             2.31E-04,       # Initial learning rate (optimized using LRFinder)
-    'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
-    'lr_patience':    2,              # Patience for learning rate plateau detection
-    'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
-    'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
-    'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
-    'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
-    'epochs':         30,             # Total number of epochs to train over
-    'save_model':     False,          # Save model on validation metric improvement
+    'model': {
+        'backbone':       'efficientnet', # Backbone Model
+        'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
+        'unfreeze_at':    5,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
+        'dropout':        0,              # Dropout in the fc layers (no dropout if 0)
+        'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
+        'n_hidden_nodes': 20,             # Number of hidden node layers on the img side
+    },
+    'dataloader': {
+        'batch_size':     16,             # Batch Size  11GB VRAM -> 32
+        'drop_last':      False,          # Drop last mismatched batch
+        'train_shuffle':  True,           # Shuffle training data
+        'val_shuffle':    False,          # Shuffle validation data
+        'num_workers':    4,              # Number of workers for DataLoader
+        'abridge_frac':   1.0,            # Fraction of the original training data to be used for train+val
+        'val_frac':       0.1,            # Fraction of the training data (abridged or not) to be used for validation set
+        'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
+    },
+    'learning_rate': {
+        'lr':             2.31E-04,       # Initial learning rate (optimized using LRFinder)
+        'find_optimal_lr':True,           # Find and plot the optimal learning rate plot (and quit training)
+        'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
+        'lr_patience':    2,              # Patience for learning rate plateau detection
+        'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau
+    },
+    'gpu_index':      0,                  # GPU Index, default at 0
+    'loss_func':      'MSE',              # Loss function ['MSE', 'MAE', 'LogCosh']
+    'epochs':         30,                 # Total number of epochs to train over
+    'save_model':     False,              # Save model on validation metric improvement
     'note':           'elu, hidden20, UnfreezeAt5, RardomResizedCrop, nodropout', # Note to leave on W&B
 }
 
-wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
+wandb.init(config=config, project='PetFinder', entity='poomstas', mode='disabled') # mode: disabled or online
 config = wandb.config # For the case where I use the W&B sweep feature
 
 # %%
-preprocess_data(TRAIN_CSV_PATH, val_frac=config['val_frac'], abridge_frac=config['abridge_frac'], scale_target=config['scale_target'])
+preprocess_data(TRAIN_CSV_PATH, 
+                val_frac=config['dataloader']['val_frac'], 
+                abridge_frac=config['dataloader']['abridge_frac'], 
+                scale_target=config['dataloader']['scale_target'])
 
 # %%
 DEVICE = torch.device('cuda:{}'.format(config['gpu_index']) if torch.cuda.is_available() else 'cpu')
-print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']))
+print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']['backbone']))
 print_config(config)
 
-if config['model'].upper() == 'XCEPTIONIMG':
-    model = ImgModel(activation=config['activation_func'],
-                     n_hidden_nodes=config['n_hidden_nodes'],
-                     freeze_backbone=config['freeze_backbone'],
-                     dropout=config['dropout']).to(DEVICE)
+if config['model']['backbone'].upper() == 'XCEPTIONIMG':
+    model = ImgModel(activation=config['model']['activation_func'],
+                     n_hidden_nodes=config['model']['n_hidden_nodes'],
+                     freeze_backbone=config['model']['freeze_backbone'],
+                     dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
-elif config['model'].upper() == 'EFFICIENTNET':
+elif config['model']['backbone'].upper() == 'EFFICIENTNET':
     model = ImgModel(backbone='efficientnet',
-                     activation=config['activation_func'],
-                     n_hidden_nodes=config['n_hidden_nodes'],
-                     freeze_backbone=config['freeze_backbone'],
-                     dropout=config['dropout']).to(DEVICE)
+                     activation=config['model']['activation_func'],
+                     n_hidden_nodes=config['model']['n_hidden_nodes'],
+                     freeze_backbone=config['model']['freeze_backbone'],
+                     dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 512
     NORMAL_MEAN = [0.485, 0.456, 0.406]
     NORMAL_STD = [0.229, 0.224, 0.225]
@@ -83,7 +92,7 @@ else:
     print('Specified model does not exist.')
     sys.exit()
 
-optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
+optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate']['lr'])
 
 # %%
 loss_dict = {
@@ -128,16 +137,16 @@ dataset_val   = PetDataset(csv_fullpath='./data/separated_val.csv',
                            target_size=TARGET_SIZE)
 
 dataloader_train = DataLoader(dataset = dataset_train,
-                              batch_size = config['batch_size'],
-                              drop_last = config['drop_last'],
-                              shuffle = config['train_shuffle'],
-                              num_workers = config['num_workers'])
+                              batch_size = config['dataloader']['batch_size'],
+                              drop_last = config['dataloader']['drop_last'],
+                              shuffle = config['dataloader']['train_shuffle'],
+                              num_workers = config['dataloader']['num_workers'])
 
 dataloader_val   = DataLoader(dataset = dataset_val,
-                              batch_size = config['batch_size'],
-                              drop_last = config['drop_last'],
-                              shuffle = config['val_shuffle'],
-                              num_workers = config['num_workers'])
+                              batch_size = config['dataloader']['batch_size'],
+                              drop_last = config['dataloader']['drop_last'],
+                              shuffle = config['dataloader']['val_shuffle'],
+                              num_workers = config['dataloader']['num_workers'])
 
 dataloaders = {'train': dataloader_train, 'val': dataloader_val}
 
@@ -149,9 +158,9 @@ model_weights_name_base = os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_')
 lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer = optimizer,
                     mode = 'min',
-                    factor = config['lr_reduction'],
-                    patience = config['lr_patience'],
-                    min_lr = config['lr_min'],
+                    factor = config['learning_rate']['lr_reduction'],
+                    patience = config['learning_rate']['lr_patience'],
+                    min_lr = config['learning_rate']['lr_min'],
                     verbose = True)
 
 # %%
@@ -167,7 +176,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
 
     for epoch in range(1, num_epochs+1):
         for phase in ['train', 'val']:
-            if epoch==1 and phase=='train' and config['find_optimal_lr']:
+            if epoch==1 and phase=='train' and config['learning_rate']['find_optimal_lr']:
                 print('\n==================================[ LR Finder ]=================================='.format(epoch, num_epochs))
                 lr_finder_optim = torch.optim.Adam(model.parameters(), lr=1e-7, weight_decay=1e-2) # Should not have a lr scheduler attached
                 lr_finder = LRFinder(model, lr_finder_optim, criterion, device=device)
@@ -178,7 +187,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                 lr_finder.reset()
             if phase=='train':
                 print('\n==================================[Epoch {}/{}]=================================='.format(epoch, num_epochs))
-            if config['freeze_backbone'] and epoch == config['unfreeze_at'] and phase=='train':
+            if config['model']['freeze_backbone'] and epoch == config['model']['unfreeze_at'] and phase=='train':
                 print('\nUnfreezing backbone model parameters...\n')
                 for param in model.backbone_model.parameters():
                     param.requires_grad = True
@@ -257,7 +266,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
             ax = fig.add_subplot(111)
             ax.scatter(pawpularities_collect, pawpularities_pred_collect)
             ax.set_xlabel('Pawpularity'); ax.set_ylabel('Pawpularity Pred.'); plt.title('Epoch {} {}'.format(epoch, phase))
-            ax_maxval = 1 if config['scale_target'] else 100
+            ax_maxval = 1 if config['dataloader']['scale_target'] else 100
             ax.plot(np.linspace(0,ax_maxval,100), np.linspace(0,ax_maxval,100), 'r--')
             plt.savefig(os.path.join(MODEL_SAVE_PATH, case_name, 'Epoch_{}_{}.png'.format(str(epoch).zfill(3), phase)))
             plt.close()

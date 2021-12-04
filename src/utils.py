@@ -21,12 +21,19 @@ def get_lr_suggestion(lr_finder_obj):
 
     return suggested_lr
 # %%
-def print_config(config_dict):
-    print('='*80)
+def print_config(config_dict, print_header=True):
+    if print_header:
+        print('='*80)
     for key in config_dict.keys():
-        tab_spacings = '\t\t\t' if len(key)<=6 else '\t\t'
-        print('{}:{}{}'.format(key, tab_spacings, config_dict[key]))
-    print('='*80)
+        if isinstance(config_dict[key], dict):
+            print('\n\t\t', key.upper())
+            print_config(config_dict[key], print_header=False)
+        else:
+            tab_spacings = '\t\t\t' if len(key)<=7 else '\t\t'
+            print('{}:{}{}'.format(key, tab_spacings, config_dict[key]))
+    if print_header:
+        print('='*80)
+    print()
 
 # %%
 def preprocess_data(csv_path, val_frac, abridge_frac=1.0, scale_target=True, random_state=12345):
@@ -57,8 +64,8 @@ def preprocess_data(csv_path, val_frac, abridge_frac=1.0, scale_target=True, ran
 def get_writer_name(config):
     writer_name = \
         "PetFindr_{}_LR_{:.5f}_BS_{}_nEpoch_{}_{}".format(
-            config['model'], config['lr'], config['batch_size'], config['epochs'], 
-            datetime.now().strftime("%Y%m%d_%H%M%S"))
+            config['model']['backbone'], config['learning_rate']['lr'], config['dataloader']['batch_size'], 
+            config['epochs'], datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     if config['note'] != "":
         TB_text = config['note'].replace(' ', '_') # Replace spaces with underscore
@@ -129,8 +136,6 @@ def adjustFigAspect(fig,aspect=1):
                         right=.5+xlim,
                         bottom=.5-ylim,
                         top=.5+ylim)
-
-# %%
 
 # %%
 if __name__=='__main__':
