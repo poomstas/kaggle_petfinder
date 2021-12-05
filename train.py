@@ -50,7 +50,7 @@ config = {
         'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau detection
     },
     'gpu_index':      0,                  # GPU Index, default at 0
-    'loss_func':      'MSE',              # Loss function ['MSE', 'MAE', 'LogCosh']
+    'loss_func':      'MSE',              # Loss function ['MSE', 'MAE', 'LogCosh', 'BCEWithLogit', 'SmoothL1']
     'epochs':         30,                 # Total number of epochs to train over
     'save_model':     False,              # Save model on validation metric improvement
     'note':           'elu, hidden20, UnfreezeAt5, RardomResizedCrop, nodropout', # Note to leave on W&B
@@ -110,13 +110,16 @@ loss_dict = {
     'MSE': nn.MSELoss(), # Mean squared error (calculated by default)
     'MAE': nn.L1Loss(reduction='mean'), # Mean Absolute Error (calculated by default)
     'LogCosh': LogCoshLoss(), 
+    'BCEWithLogit': nn.BCEWithLogitsLoss(), # Only works with scaled (0-1) targets
+    'SmoothL1': nn.SmoothL1Loss(), # aka Huber loss
 }
 criterion = loss_dict[config['loss_func']]
 
 # %% Albumentation Augmentations
 TRANSFORMS_TRAIN = A.Compose([
     A.HorizontalFlip(p=0.5),
-    A.VerticalFlip(p=0.5),
+    # A.VerticalFlip(p=0.5),
+    A.Rotate(limit=45, p=0.5),
     A.RandomResizedCrop(TARGET_SIZE, TARGET_SIZE, scale=(0.85, 1.0)),
     # A.OneOf([
     #         A.RandomRotate90(p=0.5), 
