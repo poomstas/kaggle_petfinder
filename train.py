@@ -24,12 +24,12 @@ MODEL_SAVE_PATH = './model_save/'
 # %% Hyperparameter configuration
 config = {
     'model': {
-        'backbone':       'swin',         # Backbone Model
+        'backbone':       'swin_A',       # Backbone Model
         'freeze_backbone':True,           # Freeze backbone model weights (train only fc layers)
-        'unfreeze_at':    3,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
+        'unfreeze_at':    4,              # Unfreeze backbone at the beginning of this epoch. Irrelevant if freeze_backbone == False
         'dropout':        0,              # Dropout fraction in the fc layers (no dropout if 0)
         'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
-        'n_hidden_nodes': 20,             # Number of hidden node layers on the img side
+        'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
     },
     'dataloader': {
         'batch_size':     64,             # Batch Size  11GB VRAM -> 32
@@ -42,18 +42,18 @@ config = {
         'scale_target':   False,          # Scale Pawpularity from 0-100 to 0-1 (set it at False; the model now scales up the output)
     },
     'learning_rate': {
-        'lr':             2.31E-04,       # Initial learning rate
-        'find_optimal_lr':True,           # Automatically find and apply the optimal learning rate at the beginning
+        'lr':             1.0E-5,         # Initial learning rate
+        'find_optimal_lr':False,          # Automatically find and apply the optimal learning rate at the beginning
         'new_lr_at_unfr': True,           # Automatically find and apply new learning rate when unfreezing backbone
         'lr_min':         1e-10,          # Minimum bounds for reducing learning rate
         'lr_patience':    2,              # Patience for learning rate plateau detection
         'lr_reduction':   0.33,           # Learning rate reduction factor in case of plateau detection
     },
     'gpu_index':      0,                  # GPU Index, default at 0
-    'loss_func':      'MSE',              # Loss function ['MSE', 'MAE', 'LogCosh', 'BCEWithLogit', 'SmoothL1']
+    'loss_func':      'MSE',     # Loss function ['MSE', 'MAE', 'LogCosh', 'BCEWithLogit', 'SmoothL1']
     'epochs':         30,                 # Total number of epochs to train over
     'save_model':     False,              # Save model on validation metric improvement
-    'note':           'elu, hidden20, UnfreezeAt5, RardomResizedCrop, nodropout', # Note to leave on W&B
+    'note':           'elu, hidden20, UnfreezeAt4, RardomResizedCrop', # Note to leave on W&B
 }
 
 wandb.init(config=config, project='PetFinder', entity='poomstas', mode='online') # mode: disabled or online
@@ -89,13 +89,23 @@ elif config['model']['backbone'].upper() == 'EFFICIENTNET':
     NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
     NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
 
-elif config['model']['backbone'].upper() == 'SWIN':
-    model = ImgModel(backbone='swin',
+elif config['model']['backbone'].upper() == 'SWIN_A':
+    model = ImgModel(backbone='swin_A',
                      activation=config['model']['activation_func'],
                      n_hidden_nodes=config['model']['n_hidden_nodes'],
                      freeze_backbone=config['model']['freeze_backbone'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 224
+    NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
+    NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
+
+elif config['model']['backbone'].upper() == 'SWIN_B':
+    model = ImgModel(backbone='swin_B',
+                     activation=config['model']['activation_func'],
+                     n_hidden_nodes=config['model']['n_hidden_nodes'],
+                     freeze_backbone=config['model']['freeze_backbone'],
+                     dropout=config['model']['dropout']).to(DEVICE)
+    TARGET_SIZE = 384
     NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
     NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
 
@@ -121,10 +131,6 @@ TRANSFORMS_TRAIN = A.Compose([
     # A.VerticalFlip(p=0.5),
     A.Rotate(limit=45, p=0.5),
     A.RandomResizedCrop(TARGET_SIZE, TARGET_SIZE, scale=(0.85, 1.0)),
-    # A.OneOf([
-    #         A.RandomRotate90(p=0.5), 
-    #         A.Rotate(p=0.5)],
-    #     p=0.5),
     A.ColorJitter (brightness=0.1, contrast=0.1, saturation=0.1),
     # A.ChannelShuffle(p=0.3),
     # A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
@@ -266,7 +272,7 @@ def train_model(model, dataloaders, criterion, optimizer, lr_scheduler, \
                         print('Pawpularities: {}'.format(pawpularities))
                         print('='*90)
 
-                print('\t\t[Iter. {} of {}] {} Loss: {:.4f}\t MSE: {:.4f}\t MAE: {:.4f}'.format(
+                print('\t\t[Iter. {} of {}] {} Loss: {:.3f}\t MSE: {:.3f}\t MAE: {:.3f}'.format(
                     batch_index, len(dataloaders[phase]), loss_name, running_loss/total_no_data, 
                     running_loss_MSE/total_no_data, running_loss_MAE/total_no_data),
                     end='\r')

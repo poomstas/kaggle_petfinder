@@ -22,9 +22,12 @@ class ImgModel(nn.Module):
             self.backbone_model = timm.create_model('tf_efficientnet_b0_ns', pretrained=pretrained)
             self.backbone_model.classifier = nn.Identity() # Outputs 1280
             n_backbone_out = 1280
-        elif backbone=='swin':
+        elif backbone=='swin_A':
             self.backbone_model = timm.create_model('swin_tiny_patch4_window7_224', pretrained=True, num_classes=0, in_chans=3)
             n_backbone_out = 768 # Outputs 768
+        elif backbone=='swin_B':
+            self.backbone_model = timm.create_model('swin_large_patch4_window12_384', pretrained=True, num_classes=0, in_chans=3)
+            n_backbone_out = 1536 # Outputs 1536
 
         if freeze_backbone:
             for param in self.backbone_model.parameters():
@@ -53,8 +56,9 @@ class ImgModel(nn.Module):
         out = self.activation(self.img_fc1(out))
         out = self.dropout_layer(out) if self.dropout else out
         out = self.fc1(out)
+        out = out * 100 # Scaling for easier convergence
 
-        return out*100
+        return torch.squeeze(out)
 
 # %%
 # class Xception(nn.Module):
