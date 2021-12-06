@@ -2,17 +2,38 @@
 import torch
 import math
 import argparse
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 
 # %%
-def print_config(config_dict):
-    print('='*80)
+def get_lr_suggestion(lr_finder_obj):
+    ''' To be used on lr_finder object created with pytorch-lr-finder. Retrieves the suggested lr value from obj.'''
+    skip_start, skip_end = 10, 5 # Use default values
+    lrs = lr_finder_obj.history["lr"]
+    losses = lr_finder_obj.history["loss"]
+    lrs = lrs[skip_start:-skip_end]
+    losses = losses[skip_start:-skip_end]
+    min_grad_idx = (np.gradient(np.array(losses))).argmin()
+    suggested_lr = lrs[min_grad_idx]
+    print('Suggested LR: {}'.format(suggested_lr))
+
+    return suggested_lr
+# %%
+def print_config(config_dict, print_header=True):
+    if print_header:
+        print('='*80)
     for key in config_dict.keys():
-        tab_spacings = '\t\t\t' if len(key)<=6 else '\t\t'
-        print('{}:{}{}'.format(key, tab_spacings, config_dict[key]))
-    print('='*80)
+        if isinstance(config_dict[key], dict):
+            print('\n\t\t', key.upper())
+            print_config(config_dict[key], print_header=False)
+        else:
+            tab_spacings = '\t\t\t' if len(key)<=7 else '\t\t'
+            print('{}:{}{}'.format(key, tab_spacings, config_dict[key]))
+    if print_header:
+        print('='*80)
+    print()
 
 # %%
 def preprocess_data(csv_path, val_frac, abridge_frac=1.0, scale_target=True, random_state=12345):
@@ -43,8 +64,8 @@ def preprocess_data(csv_path, val_frac, abridge_frac=1.0, scale_target=True, ran
 def get_writer_name(config):
     writer_name = \
         "PetFindr_{}_LR_{:.5f}_BS_{}_nEpoch_{}_{}".format(
-            config['model'], config['lr'], config['batch_size'], config['epochs'], 
-            datetime.now().strftime("%Y%m%d_%H%M%S"))
+            config['model']['backbone'], config['learning_rate']['lr'], config['dataloader']['batch_size'], 
+            config['epochs'], datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     if config['note'] != "":
         TB_text = config['note'].replace(' ', '_') # Replace spaces with underscore
@@ -115,8 +136,6 @@ def adjustFigAspect(fig,aspect=1):
                         right=.5+xlim,
                         bottom=.5-ylim,
                         top=.5+ylim)
-
-# %%
 
 # %%
 if __name__=='__main__':

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import albumentations as A
 from tqdm import tqdm
-from src.model import Xception, DenseNet121, XceptionImg # Add more as I go here
+from src.model import Xception, DenseNet121, ImgModel # Add more as I go here
 from src.data import PetDataset
 from src.utils import adjustFigAspect
 from albumentations.pytorch.transforms import ToTensorV2
@@ -37,7 +37,7 @@ if test_config['model'].upper() == 'XCEPTION':
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 elif test_config['model'].upper() == 'XCEPTIONIMG':
-    model = XceptionImg().to(DEVICE)
+    model = ImgModel().to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
