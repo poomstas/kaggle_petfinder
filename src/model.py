@@ -1,4 +1,5 @@
 # %%
+from re import I
 import timm
 import torch
 import torch.nn.functional as F
@@ -7,11 +8,11 @@ from pretrainedmodels import xception, densenet121, densenet201
 from torchvision.models import *
 
 # %%
-class ImgModel(nn.Module):
+class RegressionModel(nn.Module):
     ''' This class of models takes in only the image as input (no metadata taken as input) '''
     def __init__(self, backbone='xception', pretrained=True, activation='relu', n_hidden_nodes=10, 
                  freeze_backbone=False, dropout=None):
-        super(ImgModel, self).__init__()
+        super(RegressionModel, self).__init__()
         self.dropout = dropout
 
         if backbone=='xception':
@@ -23,10 +24,10 @@ class ImgModel(nn.Module):
             self.backbone_model.classifier = nn.Identity() # Outputs 1280
             n_backbone_out = 1280
         elif backbone=='swin_A':
-            self.backbone_model = timm.create_model('swin_tiny_patch4_window7_224', pretrained=True, num_classes=0, in_chans=3)
+            self.backbone_model = timm.create_model('swin_tiny_patch4_window7_224', pretrained=pretrained, num_classes=0, in_chans=3)
             n_backbone_out = 768 # Outputs 768
         elif backbone=='swin_B':
-            self.backbone_model = timm.create_model('swin_large_patch4_window12_384', pretrained=True, num_classes=0, in_chans=3)
+            self.backbone_model = timm.create_model('swin_large_patch4_window12_384', pretrained=pretrained, num_classes=0, in_chans=3)
             n_backbone_out = 1536 # Outputs 1536
 
         if freeze_backbone:
@@ -101,4 +102,4 @@ class ImgModel(nn.Module):
 
 # %%
 if __name__=='__main__':
-    model = ImgModel()
+    model = RegressionModel()

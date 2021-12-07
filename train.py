@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 import albumentations as A
 import matplotlib.pyplot as plt
-from src.model import ImgModel
+from src.model import RegressionModel
 from src.utils import print_config, preprocess_data, get_writer_name, LogCoshLoss, adjustFigAspect, get_lr_suggestion
 from pathlib import Path
 from albumentations.pytorch.transforms import ToTensorV2
@@ -30,6 +30,7 @@ config = {
         'dropout':        0,              # Dropout fraction in the fc layers (no dropout if 0)
         'activation_func':'elu',          # Model activation function ['relu', 'tanh', 'leakyrelu', 'elu']
         'n_hidden_nodes': 10,             # Number of hidden node layers on the img side
+        'pretrained':     False,          # Use pretrained backbone model
     },
     'dataloader': {
         'batch_size':     64,             # Batch Size  11GB VRAM -> 32
@@ -71,39 +72,43 @@ print('{}\nDevice: {}\nModel: {}'.format('='*80, DEVICE, config['model']['backbo
 print_config(config)
 
 if config['model']['backbone'].upper() == 'XCEPTIONIMG':
-    model = ImgModel(activation=config['model']['activation_func'],
+    model = RegressionModel(activation=config['model']['activation_func'],
                      n_hidden_nodes=config['model']['n_hidden_nodes'],
                      freeze_backbone=config['model']['freeze_backbone'],
+                     pretrained=config['model']['pretrained'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 299
     NORMAL_MEAN = [0.5, 0.5, 0.5]
     NORMAL_STD = [0.5, 0.5, 0.5]
 
 elif config['model']['backbone'].upper() == 'EFFICIENTNET':
-    model = ImgModel(backbone='efficientnet',
+    model = RegressionModel(backbone='efficientnet',
                      activation=config['model']['activation_func'],
                      n_hidden_nodes=config['model']['n_hidden_nodes'],
                      freeze_backbone=config['model']['freeze_backbone'],
+                     pretrained=config['model']['pretrained'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 512
     NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
     NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
 
 elif config['model']['backbone'].upper() == 'SWIN_A':
-    model = ImgModel(backbone='swin_A',
+    model = RegressionModel(backbone='swin_A',
                      activation=config['model']['activation_func'],
                      n_hidden_nodes=config['model']['n_hidden_nodes'],
                      freeze_backbone=config['model']['freeze_backbone'],
+                     pretrained=config['model']['pretrained'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 224
     NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
     NORMAL_STD = [0.229, 0.224, 0.225]  # Imagenet std
 
 elif config['model']['backbone'].upper() == 'SWIN_B':
-    model = ImgModel(backbone='swin_B',
+    model = RegressionModel(backbone='swin_B',
                      activation=config['model']['activation_func'],
                      n_hidden_nodes=config['model']['n_hidden_nodes'],
                      freeze_backbone=config['model']['freeze_backbone'],
+                     pretrained=config['model']['pretrained'],
                      dropout=config['model']['dropout']).to(DEVICE)
     TARGET_SIZE = 384
     NORMAL_MEAN = [0.485, 0.456, 0.406] # Imagenet mean
